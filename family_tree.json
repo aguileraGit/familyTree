@@ -1,0 +1,62 @@
+{
+  "nodes": [
+    {
+      "id": "458d2b9a-c2e8-4d66-8d47-b025b06e8868",
+      "name": "John Smith",
+      "male": true,
+      "female": false,
+      "birthday": "1980-03-10",
+      "place_of_birth": "Boston",
+      "current_location": "New York"
+    },
+    {
+      "id": "b50dd50c-7d82-40bd-b901-354825d410f7",
+      "name": "Jane Smith",
+      "male": false,
+      "female": true,
+      "birthday": "1982-07-20",
+      "place_of_birth": "Chicago",
+      "current_location": "New York"
+    },
+    {
+      "id": "58ec8ed8-f823-45d9-b8e9-d25258016991",
+      "name": "Alice Smith",
+      "male": false,
+      "female": true,
+      "birthday": "2010-05-15",
+      "place_of_birth": null,
+      "current_location": "New York"
+    },
+    {
+      "id": "f51840c4-b380-446c-a17d-50b1f0a6ccc0",
+      "name": "Bob Smith",
+      "male": true,
+      "female": false,
+      "birthday": "2012-08-22",
+      "place_of_birth": null,
+      "current_location": "New York"
+    }
+  ],
+  "edges": [
+    {
+      "source": "458d2b9a-c2e8-4d66-8d47-b025b06e8868",
+      "target": "58ec8ed8-f823-45d9-b8e9-d25258016991",
+      "relation": "father"
+    },
+    {
+      "source": "458d2b9a-c2e8-4d66-8d47-b025b06e8868",
+      "target": "f51840c4-b380-446c-a17d-50b1f0a6ccc0",
+      "relation": "father"
+    },
+    {
+      "source": "b50dd50c-7d82-40bd-b901-354825d410f7",
+      "target": "58ec8ed8-f823-45d9-b8e9-d25258016991",
+      "relation": "mother"
+    },
+    {
+      "source": "b50dd50c-7d82-40bd-b901-354825d410f7",
+      "target": "f51840c4-b380-446c-a17d-50b1f0a6ccc0",
+      "relation": "mother"
+    }
+  ]
+}
