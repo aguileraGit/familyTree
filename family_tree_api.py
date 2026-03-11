@@ -240,6 +240,75 @@ def get_person(person_id):
     }), 200
 
 
+@app.route('/api/person/<person_id>', methods=['PUT'])
+def update_person(person_id):
+    """
+    Update a person's details.
+    
+    Request body:
+    {
+        "name": "John Doe",
+        "sex": "male",
+        "father_id": "uuid-optional",
+        "mother_id": "uuid-optional",
+        "group": 1,
+        "birthday": "1980-01-01",
+        "place_of_birth": "Boston",
+        "current_location": "New York"
+    }
+    """
+    if not tree.graph.has_node(person_id):
+        return jsonify({
+            'success': False,
+            'error': 'Person not found'
+        }), 404
+    
+    data = request.json
+    
+    try:
+        # Update node attributes
+        if 'name' in data:
+            tree.graph.nodes[person_id]['name'] = data['name']
+        if 'sex' in data:
+            tree.graph.nodes[person_id]['male'] = data['sex'].lower() == 'male'
+            tree.graph.nodes[person_id]['female'] = data['sex'].lower() == 'female'
+        if 'group' in data:
+            tree.graph.nodes[person_id]['group'] = data['group']
+        if 'birthday' in data:
+            tree.graph.nodes[person_id]['birthday'] = data['birthday']
+        if 'place_of_birth' in data:
+            tree.graph.nodes[person_id]['place_of_birth'] = data['place_of_birth']
+        if 'current_location' in data:
+            tree.graph.nodes[person_id]['current_location'] = data['current_location']
+        
+        # Update parent relationships if provided
+        # First, remove existing parent edges
+        edges_to_remove = []
+        for predecessor in tree.graph.predecessors(person_id):
+            edges_to_remove.append((predecessor, person_id))
+        for edge in edges_to_remove:
+            tree.graph.remove_edge(edge[0], edge[1])
+        
+        # Add new parent edges
+        if 'father_id' in data and data['father_id'] and tree.graph.has_node(data['father_id']):
+            tree.graph.add_edge(data['father_id'], person_id, relation='father')
+        
+        if 'mother_id' in data and data['mother_id'] and tree.graph.has_node(data['mother_id']):
+            tree.graph.add_edge(data['mother_id'], person_id, relation='mother')
+        
+        return jsonify({
+            'success': True,
+            'message': 'Person updated successfully',
+            'person': tree.get_person(person_id)
+        }), 200
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+
 @app.route('/api/person/<person_id>/parents', methods=['GET'])
 def get_parents(person_id):
     """Get the parents of a person."""
@@ -454,6 +523,7 @@ def index():
         'endpoints': {
             'POST /api/person': 'Add a new person',
             'GET /api/person/<id>': 'Get person details',
+            'PUT /api/person/<id>': 'Update person details',
             'GET /api/person/<id>/parents': 'Get parents of a person',
             'GET /api/person/<id>/children': 'Get children of a person',
             'GET /api/person/<id>/siblings': 'Get siblings of a person',

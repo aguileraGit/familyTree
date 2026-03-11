@@ -88,10 +88,12 @@
             <div class="col-md-3">
                 <div class="card mb-3">
                     <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Add New Person</h5>
+                        <h5 class="mb-0" id="form-title">Add New Person</h5>
                     </div>
                     <div class="card-body">
                         <form id="add-person-form">
+                            <input type="hidden" id="edit-person-id" value="">
+                            
                             <div class="mb-3">
                                 <label class="form-label">Name *</label>
                                 <input type="text" class="form-control" id="name" required>
@@ -141,7 +143,8 @@
                                 <input type="text" class="form-control" id="current_location">
                             </div>
                             
-                            <button type="submit" class="btn btn-primary w-100">Add Person</button>
+                            <button type="submit" class="btn btn-primary w-100" id="submit-btn">Add Person</button>
+                            <button type="button" class="btn btn-secondary w-100 mt-2" id="cancel-btn" style="display: none;" onclick="cancelEdit()">Cancel</button>
                         </form>
                     </div>
                 </div>
@@ -199,6 +202,7 @@
         let treeData = null;
         let svg = null;
         let g = null;
+        let savedPositions = new Map(); // Store node positions
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -305,7 +309,14 @@
             // Create position map for all nodes
             const positionMap = new Map();
             root.descendants().forEach(d => {
-                positionMap.set(d.data.id, {x: d.x, y: d.y, data: d.data});
+                // Use saved position if it exists, otherwise use layout position
+                if (savedPositions.has(d.data.id)) {
+                    const saved = savedPositions.get(d.data.id);
+                    positionMap.set(d.data.id, {x: saved.x, y: saved.y, data: d.data});
+                } else {
+                    positionMap.set(d.data.id, {x: d.x, y: d.y, data: d.data});
+                    savedPositions.set(d.data.id, {x: d.x, y: d.y}); // Save initial position
+                }
             });
             
             // Create links group
@@ -343,6 +354,9 @@
                     pos.x = event.x;
                     pos.y = event.y;
                     
+                    // Update saved position
+                    savedPositions.set(d.data.id, {x: event.x, y: event.y});
+                    
                     d3.select(this).attr('transform', `translate(${event.x},${event.y})`);
                     updateLinks();
                 })
@@ -356,7 +370,10 @@
                 .enter()
                 .append('g')
                 .attr('class', 'node')
-                .attr('transform', d => `translate(${d.x},${d.y})`)
+                .attr('transform', d => {
+                    const pos = positionMap.get(d.data.id);
+                    return `translate(${pos.x},${pos.y})`;
+                })
                 .style('cursor', 'pointer')
                 .call(drag)
                 .on('click', (event, d) => {
@@ -445,6 +462,7 @@
         async function addPerson(event) {
             event.preventDefault();
             
+            const editPersonId = document.getElementById('edit-person-id').value;
             const fatherValue = document.getElementById('father_id').value;
             const motherValue = document.getElementById('mother_id').value;
             
@@ -460,24 +478,40 @@
             };
             
             try {
-                const response = await fetch(`${API_BASE}/person`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(formData)
-                });
+                let response;
+                
+                if (editPersonId) {
+                    // Update existing person
+                    response = await fetch(`${API_BASE}/person/${editPersonId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(formData)
+                    });
+                } else {
+                    // Add new person
+                    response = await fetch(`${API_BASE}/person`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(formData)
+                    });
+                }
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`Person added successfully!\nID: ${result.person_id}\nGroup: ${result.group}`);
-                    document.getElementById('add-person-form').reset();
+                    if (editPersonId) {
+                        alert(`Person updated successfully!`);
+                    } else {
+                        alert(`Person added successfully!\nID: ${result.person_id}\nGroup: ${result.group}`);
+                    }
+                    cancelEdit();
                     loadTree();
                 } else {
                     alert('Error: ' + result.error);
                 }
             } catch (error) {
-                console.error('Error adding person:', error);
-                alert('Failed to add person');
+                console.error('Error saving person:', error);
+                alert('Failed to save person');
             }
         }
         
@@ -518,12 +552,63 @@
                         }
                     }
                     
+                    html += `<button class="btn btn-primary btn-sm mt-2" onclick="editPerson('${personId}')">Edit Person</button>`;
+                    
                     document.getElementById('person-details-content').innerHTML = html;
                     document.getElementById('person-details').classList.add('show');
                 }
             } catch (error) {
                 console.error('Error fetching person details:', error);
             }
+        }
+        
+        async function editPerson(personId) {
+            try {
+                const response = await fetch(`${API_BASE}/person/${personId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const person = data.person;
+                    
+                    // Get parents
+                    const parentsResp = await fetch(`${API_BASE}/person/${personId}/parents`);
+                    const parentsData = await parentsResp.json();
+                    
+                    // Populate form
+                    document.getElementById('edit-person-id').value = personId;
+                    document.getElementById('name').value = person.name || '';
+                    document.getElementById('sex').value = person.male ? 'male' : 'female';
+                    document.getElementById('birthday').value = person.birthday || '';
+                    document.getElementById('place_of_birth').value = person.place_of_birth || '';
+                    document.getElementById('current_location').value = person.current_location || '';
+                    document.getElementById('group').value = person.group || '';
+                    
+                    // Set parents after dropdowns are populated
+                    if (parentsData.success) {
+                        document.getElementById('father_id').value = parentsData.parents.father?.id || '';
+                        document.getElementById('mother_id').value = parentsData.parents.mother?.id || '';
+                    }
+                    
+                    // Update UI
+                    document.getElementById('form-title').textContent = 'Edit Person';
+                    document.getElementById('submit-btn').textContent = 'Update Person';
+                    document.getElementById('cancel-btn').style.display = 'block';
+                    
+                    // Scroll to form
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            } catch (error) {
+                console.error('Error loading person for edit:', error);
+                alert('Failed to load person details');
+            }
+        }
+        
+        function cancelEdit() {
+            document.getElementById('edit-person-id').value = '';
+            document.getElementById('add-person-form').reset();
+            document.getElementById('form-title').textContent = 'Add New Person';
+            document.getElementById('submit-btn').textContent = 'Add Person';
+            document.getElementById('cancel-btn').style.display = 'none';
         }
         
         function updateStats(count) {
@@ -648,6 +733,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    savedPositions.clear(); // Clear saved positions when clearing tree
                     alert('Family tree cleared successfully!');
                     loadTree();
                 } else {
