@@ -67,6 +67,10 @@
         .badge-female {
             background-color: #e94b8f;
         }
+        
+        .badge-group {
+            background-color: #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -113,6 +117,12 @@
                             </div>
                             
                             <div class="mb-3">
+                                <label class="form-label">Group ID</label>
+                                <input type="number" class="form-control" id="group" placeholder="Optional (auto-assigned)">
+                                <small class="form-text text-muted">Leave blank to auto-assign. Children inherit parents' group.</small>
+                            </div>
+                            
+                            <div class="mb-3">
                                 <label class="form-label">Birthday</label>
                                 <input type="date" class="form-control" id="birthday">
                             </div>
@@ -141,17 +151,9 @@
                         <button class="btn btn-info w-100 mb-2" onclick="exportTree()">Export Tree</button>
                         <button class="btn btn-warning w-100 mb-2" onclick="document.getElementById('import-file').click()">Import Tree</button>
                         <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importTree(event)">
-                        <button class="btn btn-secondary w-100" onclick="showStats()">View Stats</button>
-                    </div>
-                </div>
-                
-                <!-- Person Details Card -->
-                <div class="card person-card" id="person-details">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">Person Details</h5>
-                    </div>
-                    <div class="card-body" id="person-details-content">
-                        <!-- Details will be populated here -->
+                        <button class="btn btn-secondary w-100 mb-2" onclick="showStats()">View Stats</button>
+                        <button class="btn btn-outline-primary w-100 mb-2" onclick="showGroups()">View Groups</button>
+                        <button class="btn btn-danger w-100" onclick="confirmClearTree()">Clear Tree</button>
                     </div>
                 </div>
             </div>
@@ -165,6 +167,16 @@
                     </div>
                     <div class="card-body p-0">
                         <div id="tree-container"></div>
+                    </div>
+                </div>
+                
+                <!-- Person Details Card -->
+                <div class="card person-card mt-3" id="person-details">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">Person Details</h5>
+                    </div>
+                    <div class="card-body" id="person-details-content">
+                        <!-- Details will be populated here -->
                     </div>
                 </div>
             </div>
@@ -246,7 +258,7 @@
                 return;
             }
             
-            // Build hierarchy from nodes and edges
+            // Build hierarchy from nodes and edges (for positioning only)
             const hierarchy = buildHierarchy(data);
             
             // Create tree layout
@@ -257,15 +269,53 @@
             const root = d3.hierarchy(hierarchy);
             treeLayout(root);
             
-            // Draw links
-            g.selectAll('.link')
-                .data(root.links())
-                .enter()
-                .append('path')
-                .attr('class', 'link')
-                .attr('d', d3.linkVertical()
-                    .x(d => d.x)
-                    .y(d => d.y));
+            // Create position map for all nodes
+            const positionMap = new Map();
+            root.descendants().forEach(d => {
+                positionMap.set(d.data.id, {x: d.x, y: d.y, data: d.data});
+            });
+            
+            // Create links group
+            const linksGroup = g.append('g').attr('class', 'links');
+            
+            // Function to update links
+            function updateLinks() {
+                linksGroup.selectAll('path').remove();
+                
+                data.edges.forEach(edge => {
+                    const sourcePos = positionMap.get(edge.source);
+                    const targetPos = positionMap.get(edge.target);
+                    
+                    if (sourcePos && targetPos) {
+                        linksGroup.append('path')
+                            .attr('class', 'link')
+                            .attr('d', `M${sourcePos.x},${sourcePos.y} L${targetPos.x},${targetPos.y}`)
+                            .style('stroke', edge.relation === 'father' ? '#4a90e2' : '#e94b8f')
+                            .style('stroke-width', 2)
+                            .style('fill', 'none');
+                    }
+                });
+            }
+            
+            // Initial link drawing
+            updateLinks();
+            
+            // Drag behavior
+            const drag = d3.drag()
+                .on('start', function(event) {
+                    d3.select(this).raise().style('cursor', 'grabbing');
+                })
+                .on('drag', function(event, d) {
+                    const pos = positionMap.get(d.data.id);
+                    pos.x = event.x;
+                    pos.y = event.y;
+                    
+                    d3.select(this).attr('transform', `translate(${event.x},${event.y})`);
+                    updateLinks();
+                })
+                .on('end', function(event) {
+                    d3.select(this).style('cursor', 'pointer');
+                });
             
             // Draw nodes
             const node = g.selectAll('.node')
@@ -274,7 +324,12 @@
                 .append('g')
                 .attr('class', 'node')
                 .attr('transform', d => `translate(${d.x},${d.y})`)
-                .on('click', (event, d) => showPersonDetails(d.data.id));
+                .style('cursor', 'pointer')
+                .call(drag)
+                .on('click', (event, d) => {
+                    if (event.defaultPrevented) return; // Don't trigger click after drag
+                    showPersonDetails(d.data.id);
+                });
             
             node.append('circle')
                 .attr('r', 20)
@@ -283,6 +338,7 @@
             node.append('text')
                 .attr('dy', 35)
                 .attr('text-anchor', 'middle')
+                .style('pointer-events', 'none')
                 .text(d => d.data.name);
             
             // Add birth year if available
@@ -291,22 +347,45 @@
                 .attr('text-anchor', 'middle')
                 .style('font-size', '10px')
                 .style('fill', '#666')
+                .style('pointer-events', 'none')
                 .text(d => d.data.birthday ? `(${d.data.birthday.split('-')[0]})` : '');
         }
         
         function buildHierarchy(data) {
-            // Find root nodes (people with no parents)
+            // Create node map
             const nodeMap = new Map();
             data.nodes.forEach(node => {
                 nodeMap.set(node.id, {...node, children: []});
             });
             
-            // Build parent-child relationships
+            // Track children and their parents
+            const childToParents = new Map();
             data.edges.forEach(edge => {
-                const parent = nodeMap.get(edge.source);
-                const child = nodeMap.get(edge.target);
-                if (parent && child && !parent.children.includes(child)) {
-                    parent.children.push(child);
+                if (!childToParents.has(edge.target)) {
+                    childToParents.set(edge.target, {father: null, mother: null});
+                }
+                if (edge.relation === 'father') {
+                    childToParents.get(edge.target).father = edge.source;
+                } else if (edge.relation === 'mother') {
+                    childToParents.get(edge.target).mother = edge.source;
+                }
+            });
+            
+            // Build parent-child relationships
+            // Only add child to father to avoid duplication
+            childToParents.forEach((parents, childId) => {
+                const child = nodeMap.get(childId);
+                if (parents.father) {
+                    const father = nodeMap.get(parents.father);
+                    if (father && !father.children.includes(child)) {
+                        father.children.push(child);
+                    }
+                } else if (parents.mother) {
+                    // If no father, add to mother
+                    const mother = nodeMap.get(parents.mother);
+                    if (mother && !mother.children.includes(child)) {
+                        mother.children.push(child);
+                    }
                 }
             });
             
@@ -338,6 +417,7 @@
                 sex: document.getElementById('sex').value,
                 father_id: document.getElementById('father_id').value || undefined,
                 mother_id: document.getElementById('mother_id').value || undefined,
+                group: document.getElementById('group').value ? parseInt(document.getElementById('group').value) : undefined,
                 birthday: document.getElementById('birthday').value || undefined,
                 place_of_birth: document.getElementById('place_of_birth').value || undefined,
                 current_location: document.getElementById('current_location').value || undefined
@@ -353,7 +433,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`Person added successfully! ID: ${result.person_id}`);
+                    alert(`Person added successfully!\nID: ${result.person_id}\nGroup: ${result.group}`);
                     document.getElementById('add-person-form').reset();
                     loadTree();
                 } else {
@@ -379,7 +459,10 @@
                     
                     let html = `
                         <h6>${person.name}</h6>
-                        <p><span class="badge ${sexBadge}">${sexText}</span></p>
+                        <p>
+                            <span class="badge ${sexBadge}">${sexText}</span>
+                            <span class="badge badge-group ms-1">Group ${person.group}</span>
+                        </p>
                         <p><strong>ID:</strong><br><small>${personId}</small></p>
                     `;
                     
@@ -468,10 +551,75 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(`Family Tree Statistics:\n\nTotal People: ${data.stats.total_people}\nTotal Relationships: ${data.stats.total_relationships}`);
+                    alert(`Family Tree Statistics:\n\nTotal People: ${data.stats.total_people}\nTotal Relationships: ${data.stats.total_relationships}\nTotal Family Groups: ${data.stats.total_groups}`);
                 }
             } catch (error) {
                 console.error('Error fetching stats:', error);
+            }
+        }
+        
+        async function showGroups() {
+            try {
+                const response = await fetch(`${API_BASE}/groups`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    let message = `Family Groups (${data.count} total):\n\n`;
+                    
+                    for (const [groupId, members] of Object.entries(data.groups)) {
+                        message += `Group ${groupId}: ${members.length} member(s)\n`;
+                        members.forEach(member => {
+                            message += `  - ${member.name} (${member.male ? 'M' : 'F'})\n`;
+                        });
+                        message += '\n';
+                    }
+                    
+                    alert(message);
+                }
+            } catch (error) {
+                console.error('Error fetching groups:', error);
+                alert('Failed to fetch groups');
+            }
+        }
+        
+        function confirmClearTree() {
+            const confirmation = confirm(
+                "⚠️ WARNING ⚠️\n\n" +
+                "This will delete ALL people and relationships from the family tree.\n\n" +
+                "This action CANNOT be undone!\n\n" +
+                "Are you sure you want to clear the entire tree?"
+            );
+            
+            if (confirmation) {
+                clearTree();
+            }
+        }
+        
+        async function clearTree() {
+            try {
+                // Import an empty tree
+                const response = await fetch(`${API_BASE}/import`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tree: {
+                            nodes: [],
+                            edges: []
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Family tree cleared successfully!');
+                    loadTree();
+                } else {
+                    alert('Error clearing tree: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error clearing tree:', error);
+                alert('Failed to clear tree');
             }
         }
     </script>

@@ -6,12 +6,12 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-
 CORS(app)  # Enable CORS for all routes
 
 class FamilyTree:
     def __init__(self):
         self.graph = nx.DiGraph()
+        self.next_group_id = 1
     
     def add_person(
         self,
@@ -19,6 +19,7 @@ class FamilyTree:
         sex: str,
         father_id: Optional[str] = None,
         mother_id: Optional[str] = None,
+        group: Optional[int] = None,
         birthday: Optional[str] = None,
         place_of_birth: Optional[str] = None,
         current_location: Optional[str] = None
@@ -26,12 +27,25 @@ class FamilyTree:
         """Add a person to the family tree."""
         person_id = str(uuid.uuid4())
         
+        # Determine group
+        if group is None and (father_id or mother_id):
+            # Inherit group from parents (children are in same group as parents)
+            if father_id and self.graph.has_node(father_id):
+                group = self.graph.nodes[father_id].get('group')
+            elif mother_id and self.graph.has_node(mother_id):
+                group = self.graph.nodes[mother_id].get('group')
+        elif group is None:
+            # Assign new group if no parents (new family unit)
+            group = self.next_group_id
+            self.next_group_id += 1
+        
         # Add node with attributes
         self.graph.add_node(
             person_id,
             name=name,
             male=sex.lower() == 'male',
             female=sex.lower() == 'female',
+            group=group,
             birthday=birthday,
             place_of_birth=place_of_birth,
             current_location=current_location
@@ -82,6 +96,24 @@ class FamilyTree:
         
         return list(siblings)
     
+    def get_family_group(self, group_id: int) -> list[str]:
+        """Get all people in a family group."""
+        return [
+            node for node, data in self.graph.nodes(data=True)
+            if data.get('group') == group_id
+        ]
+    
+    def get_all_groups(self) -> Dict[int, list[str]]:
+        """Get all family groups."""
+        groups = {}
+        for node, data in self.graph.nodes(data=True):
+            group_id = data.get('group')
+            if group_id:
+                if group_id not in groups:
+                    groups[group_id] = []
+                groups[group_id].append(node)
+        return groups
+    
     def get_all_people(self) -> list[Dict[str, Any]]:
         """Get all people in the tree."""
         people = []
@@ -117,14 +149,24 @@ class FamilyTree:
         """Import a family tree from a dictionary."""
         self.graph.clear()
         
+        # Track the highest group ID to continue numbering
+        max_group = 0
+        
         for node_data in data['nodes']:
             node_id = node_data.pop('id')
             self.graph.add_node(node_id, **node_data)
+            
+            # Track max group ID
+            if 'group' in node_data and node_data['group']:
+                max_group = max(max_group, node_data['group'])
         
         for edge_data in data['edges']:
             source = edge_data.pop('source')
             target = edge_data.pop('target')
             self.graph.add_edge(source, target, **edge_data)
+        
+        # Set next_group_id to continue from imported data
+        self.next_group_id = max_group + 1
 
 
 # Global family tree instance
@@ -144,6 +186,7 @@ def add_person():
         "sex": "male",
         "father_id": "uuid-optional",
         "mother_id": "uuid-optional",
+        "group": 1,
         "birthday": "1980-01-01",
         "place_of_birth": "Boston",
         "current_location": "New York"
@@ -157,14 +200,18 @@ def add_person():
             sex=data['sex'],
             father_id=data.get('father_id'),
             mother_id=data.get('mother_id'),
+            group=data.get('group'),
             birthday=data.get('birthday'),
             place_of_birth=data.get('place_of_birth'),
             current_location=data.get('current_location')
         )
         
+        person = tree.get_person(person_id)
+        
         return jsonify({
             'success': True,
             'person_id': person_id,
+            'group': person.get('group'),
             'message': 'Person added successfully'
         }), 201
     
@@ -332,14 +379,68 @@ def import_tree():
         }), 400
 
 
+@app.route('/api/groups', methods=['GET'])
+def get_all_groups():
+    """Get all family groups."""
+    groups = tree.get_all_groups()
+    
+    # Build detailed group information
+    group_details = {}
+    for group_id, member_ids in groups.items():
+        members = []
+        for member_id in member_ids:
+            person = tree.get_person(member_id)
+            members.append({
+                'id': member_id,
+                **person
+            })
+        group_details[group_id] = members
+    
+    return jsonify({
+        'success': True,
+        'groups': group_details,
+        'count': len(groups)
+    }), 200
+
+
+@app.route('/api/group/<int:group_id>', methods=['GET'])
+def get_group(group_id):
+    """Get all people in a specific family group."""
+    member_ids = tree.get_family_group(group_id)
+    
+    if not member_ids:
+        return jsonify({
+            'success': False,
+            'error': 'Group not found'
+        }), 404
+    
+    members = []
+    for member_id in member_ids:
+        person = tree.get_person(member_id)
+        members.append({
+            'id': member_id,
+            **person
+        })
+    
+    return jsonify({
+        'success': True,
+        'group_id': group_id,
+        'members': members,
+        'count': len(members)
+    }), 200
+
+
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """Get statistics about the family tree."""
+    groups = tree.get_all_groups()
+    
     return jsonify({
         'success': True,
         'stats': {
             'total_people': tree.graph.number_of_nodes(),
-            'total_relationships': tree.graph.number_of_edges()
+            'total_relationships': tree.graph.number_of_edges(),
+            'total_groups': len(groups)
         }
     }), 200
 
@@ -357,6 +458,8 @@ def index():
             'GET /api/person/<id>/children': 'Get children of a person',
             'GET /api/person/<id>/siblings': 'Get siblings of a person',
             'GET /api/people': 'Get all people',
+            'GET /api/groups': 'Get all family groups',
+            'GET /api/group/<id>': 'Get members of a specific group',
             'GET /api/export': 'Export family tree',
             'POST /api/import': 'Import family tree',
             'GET /api/stats': 'Get tree statistics'
@@ -365,4 +468,4 @@ def index():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='192.168.1.20', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
