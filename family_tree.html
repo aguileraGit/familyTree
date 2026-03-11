@@ -24,7 +24,6 @@
         
         .node circle {
             fill: #fff;
-            stroke: steelblue;
             stroke-width: 3px;
             cursor: pointer;
         }
@@ -69,7 +68,8 @@
         }
         
         .badge-group {
-            background-color: #6c757d;
+            margin-right: 2px;
+            border: none;
         }
     </style>
 </head>
@@ -123,9 +123,9 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label class="form-label">Group ID</label>
-                                <input type="number" class="form-control" id="group" placeholder="Optional (auto-assigned)">
-                                <small class="form-text text-muted">Leave blank to auto-assign. Children inherit parents' group.</small>
+                                <label class="form-label">Family Groups</label>
+                                <input type="text" class="form-control" id="family_groups" placeholder="e.g., 1,2,3 (comma-separated)">
+                                <small class="form-text text-muted">Leave blank to auto-assign. Enter multiple groups separated by commas.</small>
                             </div>
                             
                             <div class="mb-3">
@@ -203,6 +203,21 @@
         let svg = null;
         let g = null;
         let savedPositions = new Map(); // Store node positions
+        
+        // Color palette for family groups
+        const familyGroupColors = ['#00429d', '#1e4da2', '#2e59a8', '#3b65ad', '#4771b2', '#527db8', '#5d8abd', '#6896c2', '#73a2c6', '#7eafcb', '#8abccf', '#97c8d4', '#a5d5d8', '#b4e1db', '#c5eddf', '#dbf8e1', '#ffffe0', '#ffefd4', '#ffdec7', '#ffcebb', '#ffbcaf', '#ffaba2', '#ff9895', '#fa888a', '#f4777f', '#ec6775', '#e4576b', '#da4762', '#cf3759', '#c22650', '#b41648', '#a50641', '#93003a'];
+        
+        // Map to store color assignments for each group
+        const groupColorMap = new Map();
+        
+        function getGroupColor(groupId) {
+            if (!groupColorMap.has(groupId)) {
+                // Assign a random color from the palette
+                const color = familyGroupColors[Math.floor(Math.random() * familyGroupColors.length)];
+                groupColorMap.set(groupId, color);
+            }
+            return groupColorMap.get(groupId);
+        }
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -383,7 +398,15 @@
             
             node.append('circle')
                 .attr('r', 20)
-                .attr('class', d => d.data.male ? 'male' : 'female');
+                .attr('class', d => d.data.male ? 'male' : 'female')
+                .style('fill', d => {
+                    // Use color from first family group
+                    const groups = d.data.family_groups || [];
+                    if (groups.length > 0) {
+                        return getGroupColor(groups[0]);
+                    }
+                    return '#fff';
+                });
             
             node.append('text')
                 .attr('dy', 35)
@@ -466,12 +489,19 @@
             const fatherValue = document.getElementById('father_id').value;
             const motherValue = document.getElementById('mother_id').value;
             
+            // Parse family groups
+            const familyGroupsInput = document.getElementById('family_groups').value.trim();
+            let familyGroups = undefined;
+            if (familyGroupsInput) {
+                familyGroups = familyGroupsInput.split(',').map(g => parseInt(g.trim())).filter(g => !isNaN(g));
+            }
+            
             const formData = {
                 name: document.getElementById('name').value,
                 sex: document.getElementById('sex').value,
                 father_id: fatherValue || undefined,
                 mother_id: motherValue || undefined,
-                group: document.getElementById('group').value ? parseInt(document.getElementById('group').value) : undefined,
+                family_groups: familyGroups,
                 birthday: document.getElementById('birthday').value || undefined,
                 place_of_birth: document.getElementById('place_of_birth').value || undefined,
                 current_location: document.getElementById('current_location').value || undefined
@@ -502,7 +532,7 @@
                     if (editPersonId) {
                         alert(`Person updated successfully!`);
                     } else {
-                        alert(`Person added successfully!\nID: ${result.person_id}\nGroup: ${result.group}`);
+                        alert(`Person added successfully!\nID: ${result.person_id}\nFamily Groups: ${result.family_groups.join(', ')}`);
                     }
                     cancelEdit();
                     loadTree();
@@ -527,11 +557,18 @@
                     const sexBadge = person.male ? 'badge-male' : 'badge-female';
                     const sexText = person.male ? 'Male' : 'Female';
                     
+                    // Format family groups with colors
+                    const familyGroups = person.family_groups || [];
+                    const groupBadges = familyGroups.map(g => {
+                        const color = getGroupColor(g);
+                        return `<span class="badge badge-group" style="background-color: ${color}; color: white;">Group ${g}</span>`;
+                    }).join(' ');
+                    
                     let html = `
                         <h6>${person.name}</h6>
                         <p>
                             <span class="badge ${sexBadge}">${sexText}</span>
-                            <span class="badge badge-group ms-1">Group ${person.group}</span>
+                            ${groupBadges}
                         </p>
                         <p><strong>ID:</strong><br><small>${personId}</small></p>
                     `;
@@ -581,7 +618,10 @@
                     document.getElementById('birthday').value = person.birthday || '';
                     document.getElementById('place_of_birth').value = person.place_of_birth || '';
                     document.getElementById('current_location').value = person.current_location || '';
-                    document.getElementById('group').value = person.group || '';
+                    
+                    // Format family groups as comma-separated string
+                    const familyGroups = person.family_groups || [];
+                    document.getElementById('family_groups').value = familyGroups.join(', ');
                     
                     // Set parents after dropdowns are populated
                     if (parentsData.success) {

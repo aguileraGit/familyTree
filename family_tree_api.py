@@ -11,7 +11,7 @@ CORS(app)  # Enable CORS for all routes
 class FamilyTree:
     def __init__(self):
         self.graph = nx.DiGraph()
-        self.next_group_id = 1
+        self.next_family_group_id = 1
     
     def add_person(
         self,
@@ -19,7 +19,7 @@ class FamilyTree:
         sex: str,
         father_id: Optional[str] = None,
         mother_id: Optional[str] = None,
-        group: Optional[int] = None,
+        family_groups: Optional[list[int]] = None,
         birthday: Optional[str] = None,
         place_of_birth: Optional[str] = None,
         current_location: Optional[str] = None
@@ -27,17 +27,25 @@ class FamilyTree:
         """Add a person to the family tree."""
         person_id = str(uuid.uuid4())
         
-        # Determine group
-        if group is None and (father_id or mother_id):
-            # Inherit group from parents (children are in same group as parents)
+        # Determine family groups
+        if family_groups is None:
+            family_groups = []
             if father_id and self.graph.has_node(father_id):
-                group = self.graph.nodes[father_id].get('group')
-            elif mother_id and self.graph.has_node(mother_id):
-                group = self.graph.nodes[mother_id].get('group')
-        elif group is None:
-            # Assign new group if no parents (new family unit)
-            group = self.next_group_id
-            self.next_group_id += 1
+                # Inherit groups from father
+                father_groups = self.graph.nodes[father_id].get('family_groups', [])
+                family_groups.extend(father_groups)
+            if mother_id and self.graph.has_node(mother_id):
+                # Inherit groups from mother
+                mother_groups = self.graph.nodes[mother_id].get('family_groups', [])
+                family_groups.extend(mother_groups)
+            
+            # Remove duplicates
+            family_groups = list(set(family_groups))
+            
+            # If no groups inherited, assign new group
+            if not family_groups:
+                family_groups = [self.next_family_group_id]
+                self.next_family_group_id += 1
         
         # Add node with attributes
         self.graph.add_node(
@@ -45,7 +53,7 @@ class FamilyTree:
             name=name,
             male=sex.lower() == 'male',
             female=sex.lower() == 'female',
-            group=group,
+            family_groups=family_groups,
             birthday=birthday,
             place_of_birth=place_of_birth,
             current_location=current_location
@@ -100,15 +108,15 @@ class FamilyTree:
         """Get all people in a family group."""
         return [
             node for node, data in self.graph.nodes(data=True)
-            if data.get('group') == group_id
+            if group_id in data.get('family_groups', [])
         ]
     
     def get_all_groups(self) -> Dict[int, list[str]]:
         """Get all family groups."""
         groups = {}
         for node, data in self.graph.nodes(data=True):
-            group_id = data.get('group')
-            if group_id:
+            group_ids = data.get('family_groups', [])
+            for group_id in group_ids:
                 if group_id not in groups:
                     groups[group_id] = []
                 groups[group_id].append(node)
@@ -154,19 +162,26 @@ class FamilyTree:
         
         for node_data in data['nodes']:
             node_id = node_data.pop('id')
+            
+            # Handle backward compatibility: convert 'group' to 'family_groups'
+            if 'group' in node_data and 'family_groups' not in node_data:
+                node_data['family_groups'] = [node_data.pop('group')]
+            elif 'family_groups' not in node_data:
+                node_data['family_groups'] = []
+            
             self.graph.add_node(node_id, **node_data)
             
             # Track max group ID
-            if 'group' in node_data and node_data['group']:
-                max_group = max(max_group, node_data['group'])
+            for group_id in node_data.get('family_groups', []):
+                max_group = max(max_group, group_id)
         
         for edge_data in data['edges']:
             source = edge_data.pop('source')
             target = edge_data.pop('target')
             self.graph.add_edge(source, target, **edge_data)
         
-        # Set next_group_id to continue from imported data
-        self.next_group_id = max_group + 1
+        # Set next_family_group_id to continue from imported data
+        self.next_family_group_id = max_group + 1
 
 
 # Global family tree instance
@@ -186,7 +201,7 @@ def add_person():
         "sex": "male",
         "father_id": "uuid-optional",
         "mother_id": "uuid-optional",
-        "group": 1,
+        "family_groups": [1, 2],
         "birthday": "1980-01-01",
         "place_of_birth": "Boston",
         "current_location": "New York"
@@ -200,7 +215,7 @@ def add_person():
             sex=data['sex'],
             father_id=data.get('father_id'),
             mother_id=data.get('mother_id'),
-            group=data.get('group'),
+            family_groups=data.get('family_groups'),
             birthday=data.get('birthday'),
             place_of_birth=data.get('place_of_birth'),
             current_location=data.get('current_location')
@@ -211,7 +226,7 @@ def add_person():
         return jsonify({
             'success': True,
             'person_id': person_id,
-            'group': person.get('group'),
+            'family_groups': person.get('family_groups', []),
             'message': 'Person added successfully'
         }), 201
     
@@ -251,7 +266,7 @@ def update_person(person_id):
         "sex": "male",
         "father_id": "uuid-optional",
         "mother_id": "uuid-optional",
-        "group": 1,
+        "family_groups": [1, 2],
         "birthday": "1980-01-01",
         "place_of_birth": "Boston",
         "current_location": "New York"
@@ -272,8 +287,8 @@ def update_person(person_id):
         if 'sex' in data:
             tree.graph.nodes[person_id]['male'] = data['sex'].lower() == 'male'
             tree.graph.nodes[person_id]['female'] = data['sex'].lower() == 'female'
-        if 'group' in data:
-            tree.graph.nodes[person_id]['group'] = data['group']
+        if 'family_groups' in data:
+            tree.graph.nodes[person_id]['family_groups'] = data['family_groups']
         if 'birthday' in data:
             tree.graph.nodes[person_id]['birthday'] = data['birthday']
         if 'place_of_birth' in data:
