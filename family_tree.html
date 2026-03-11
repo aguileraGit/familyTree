@@ -107,13 +107,17 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label class="form-label">Father ID</label>
-                                <input type="text" class="form-control" id="father_id" placeholder="Optional UUID">
+                                <label class="form-label">Father</label>
+                                <select class="form-select" id="father_id">
+                                    <option value="">None</option>
+                                </select>
                             </div>
                             
                             <div class="mb-3">
-                                <label class="form-label">Mother ID</label>
-                                <input type="text" class="form-control" id="mother_id" placeholder="Optional UUID">
+                                <label class="form-label">Mother</label>
+                                <select class="form-select" id="mother_id">
+                                    <option value="">None</option>
+                                </select>
                             </div>
                             
                             <div class="mb-3">
@@ -204,6 +208,34 @@
             document.getElementById('add-person-form').addEventListener('submit', addPerson);
         });
         
+        function populateParentDropdowns() {
+            if (!treeData || !treeData.nodes) return;
+            
+            const fatherSelect = document.getElementById('father_id');
+            const motherSelect = document.getElementById('mother_id');
+            
+            // Clear existing options except "None"
+            fatherSelect.innerHTML = '<option value="">None</option>';
+            motherSelect.innerHTML = '<option value="">None</option>';
+            
+            // Add all people to dropdowns
+            treeData.nodes.forEach(person => {
+                if (person.male) {
+                    const option = document.createElement('option');
+                    option.value = person.id;
+                    option.textContent = person.name;
+                    fatherSelect.appendChild(option);
+                }
+                
+                if (person.female) {
+                    const option = document.createElement('option');
+                    option.value = person.id;
+                    option.textContent = person.name;
+                    motherSelect.appendChild(option);
+                }
+            });
+        }
+        
         function initializeTree() {
             const container = document.getElementById('tree-container');
             const width = container.clientWidth || 800;
@@ -236,6 +268,7 @@
                     treeData = data.tree;
                     updateStats(treeData.nodes.length);
                     visualizeTree(treeData);
+                    populateParentDropdowns();
                 }
             } catch (error) {
                 console.error('Error loading tree:', error);
@@ -412,11 +445,14 @@
         async function addPerson(event) {
             event.preventDefault();
             
+            const fatherValue = document.getElementById('father_id').value;
+            const motherValue = document.getElementById('mother_id').value;
+            
             const formData = {
                 name: document.getElementById('name').value,
                 sex: document.getElementById('sex').value,
-                father_id: document.getElementById('father_id').value || undefined,
-                mother_id: document.getElementById('mother_id').value || undefined,
+                father_id: fatherValue || undefined,
+                mother_id: motherValue || undefined,
                 group: document.getElementById('group').value ? parseInt(document.getElementById('group').value) : undefined,
                 birthday: document.getElementById('birthday').value || undefined,
                 place_of_birth: document.getElementById('place_of_birth').value || undefined,
