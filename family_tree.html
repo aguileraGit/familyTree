@@ -41,10 +41,7 @@
             font-weight: 500;
         }
         
-        .node:hover circle:not([style*="fill: none"]),
-        .node:hover path {
-            opacity: 0.75;
-        }
+
         
         .link {
             fill: none;
@@ -210,12 +207,22 @@
         
         // Map to store color assignments for each group
         const groupColorMap = new Map();
-        
+
+        // Shuffle the palette once so picks are non-sequential; refill when exhausted
+        function shuffleArray(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+        let colorPool = shuffleArray(familyGroupColors);
+
         function getGroupColor(groupId) {
             if (!groupColorMap.has(groupId)) {
-                // Assign a random color from the palette
-                const color = familyGroupColors[Math.floor(Math.random() * familyGroupColors.length)];
-                groupColorMap.set(groupId, color);
+                if (colorPool.length === 0) colorPool = shuffleArray(familyGroupColors);
+                groupColorMap.set(groupId, colorPool.pop());
             }
             return groupColorMap.get(groupId);
         }
