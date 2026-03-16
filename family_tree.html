@@ -41,8 +41,9 @@
             font-weight: 500;
         }
         
-        .node:hover circle {
-            fill: #f0f0f0;
+        .node:hover circle:not([style*="fill: none"]),
+        .node:hover path {
+            opacity: 0.75;
         }
         
         .link {
@@ -396,17 +397,82 @@
                     showPersonDetails(d.data.id);
                 });
             
-            node.append('circle')
-                .attr('r', 20)
-                .attr('class', d => d.data.male ? 'male' : 'female')
-                .style('fill', d => {
-                    // Use color from first family group
-                    const groups = d.data.family_groups || [];
-                    if (groups.length > 0) {
-                        return getGroupColor(groups[0]);
+            // Draw circle fill: solid for 0–1 groups, pie slices for 2+ groups
+            node.each(function(d) {
+                const nodeEl = d3.select(this);
+                const groups = d.data.family_groups || [];
+                const r = 20;
+                const sexClass = d.data.male ? 'male' : 'female';
+
+                // Helper: pick black or white label based on background luminance
+                function labelColor(hex) {
+                    const c = hex.replace('#', '');
+                    const r2 = parseInt(c.substring(0,2),16);
+                    const g2 = parseInt(c.substring(2,4),16);
+                    const b2 = parseInt(c.substring(4,6),16);
+                    // Perceived luminance (sRGB)
+                    const lum = (0.299*r2 + 0.587*g2 + 0.114*b2) / 255;
+                    return lum > 0.55 ? '#333' : '#fff';
+                }
+
+                if (groups.length <= 1) {
+                    // Single color or white
+                    const fillColor = groups.length === 1 ? getGroupColor(groups[0]) : '#fff';
+                    nodeEl.append('circle')
+                        .attr('r', r)
+                        .attr('class', sexClass)
+                        .style('fill', fillColor);
+                    // Single group number centered in circle
+                    if (groups.length === 1) {
+                        nodeEl.append('text')
+                            .attr('text-anchor', 'middle')
+                            .attr('dominant-baseline', 'central')
+                            .style('font-size', '10px')
+                            .style('font-weight', 'bold')
+                            .style('fill', labelColor(fillColor))
+                            .style('pointer-events', 'none')
+                            .text(groups[0]);
                     }
-                    return '#fff';
-                });
+                } else {
+                    // Pie slices — one path per group
+                    const sliceAngle = (2 * Math.PI) / groups.length;
+                    const labelR = r * 0.58; // radius at which to place the label
+                    groups.forEach((group, i) => {
+                        const startAngle = i * sliceAngle - Math.PI / 2;
+                        const endAngle   = startAngle + sliceAngle;
+                        const x1 = r * Math.cos(startAngle);
+                        const y1 = r * Math.sin(startAngle);
+                        const x2 = r * Math.cos(endAngle);
+                        const y2 = r * Math.sin(endAngle);
+                        const largeArc = sliceAngle > Math.PI ? 1 : 0;
+                        const color = getGroupColor(group);
+                        nodeEl.append('path')
+                            .attr('d', `M 0 0 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`)
+                            .style('fill', color)
+                            .style('stroke', 'none');
+                        // Label at centroid of slice
+                        const midAngle = startAngle + sliceAngle / 2;
+                        const lx = labelR * Math.cos(midAngle);
+                        const ly = labelR * Math.sin(midAngle);
+                        const fontSize = groups.length > 4 ? '7px' : '9px';
+                        nodeEl.append('text')
+                            .attr('x', lx)
+                            .attr('y', ly)
+                            .attr('text-anchor', 'middle')
+                            .attr('dominant-baseline', 'central')
+                            .style('font-size', fontSize)
+                            .style('font-weight', 'bold')
+                            .style('fill', labelColor(color))
+                            .style('pointer-events', 'none')
+                            .text(group);
+                    });
+                    // Stroke-only circle on top (inherits .male / .female border color)
+                    nodeEl.append('circle')
+                        .attr('r', r)
+                        .attr('class', sexClass)
+                        .style('fill', 'none');
+                }
+            });
             
             node.append('text')
                 .attr('dy', 35)
