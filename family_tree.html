@@ -272,6 +272,18 @@
                 .append('svg')
                 .attr('width', width)
                 .attr('height', height);
+
+            // Define glow filter for group-member highlight
+            const defs = svg.append('defs');
+            const filter = defs.append('filter')
+                .attr('id', 'group-glow')
+                .attr('x', '-50%').attr('y', '-50%')
+                .attr('width', '200%').attr('height', '200%');
+            filter.append('feDropShadow')
+                .attr('dx', 0).attr('dy', 0)
+                .attr('stdDeviation', 5)
+                .attr('flood-color', '#ffcc00')
+                .attr('flood-opacity', 1);
             
             g = svg.append('g')
                 .attr('transform', 'translate(40, 40)');
@@ -402,6 +414,21 @@
                 .on('click', (event, d) => {
                     if (event.defaultPrevented) return; // Don't trigger click after drag
                     showPersonDetails(d.data.id);
+                })
+                .on('mouseover', function(event, d) {
+                    if (event.defaultPrevented) return;
+                    const hoveredGroups = new Set(d.data.family_groups || []);
+                    if (hoveredGroups.size === 0) return;
+                    g.selectAll('.node').each(function(nd) {
+                        const memberGroups = nd.data.family_groups || [];
+                        const isGroupMate = memberGroups.some(g2 => hoveredGroups.has(g2));
+                        if (isGroupMate) {
+                            d3.select(this).style('filter', 'url(#group-glow)');
+                        }
+                    });
+                })
+                .on('mouseout', function() {
+                    g.selectAll('.node').style('filter', null);
                 });
             
             // Draw circle fill: solid for 0–1 groups, pie slices for 2+ groups
