@@ -9,64 +9,48 @@
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 
-        /* Blur overlay */
-        #main-content {
-            transition: filter 0.3s ease;
-        }
-        #main-content.blurred {
-            filter: blur(6px);
-            pointer-events: none;
-            user-select: none;
-        }
+        #main-content { transition: filter 0.3s ease; }
+        #main-content.blurred { filter: blur(6px); pointer-events: none; user-select: none; }
 
-        /* Modal override - always on top */
-        #access-modal .modal-dialog { z-index: 1060; }
-
-        /* Tree container */
         #tree-container {
             background: white;
             border-radius: 0 0 8px 8px;
-            min-height: 560px;
+            height: 560px;
             overflow: hidden;
             position: relative;
+            user-select: none;
         }
 
-        /* D3 nodes */
-        .node circle { fill: #fff; stroke-width: 3px; cursor: pointer; }
-        .node circle.male   { stroke: #4a90e2; }
-        .node circle.female { stroke: #e94b8f; }
-        .node:hover circle  { fill: #f0f0f0; }
-        .node text          { font-size: 12px; font-weight: 500; pointer-events: none; }
+        #tree-svg { width: 100%; height: 100%; }
 
-        /* Badges */
+        .node-circle { cursor: grab; }
+        .node-circle:active { cursor: grabbing; }
+        .node-circle.male   { fill: white; stroke: #4a90e2; stroke-width: 3; }
+        .node-circle.female { fill: white; stroke: #e94b8f; stroke-width: 3; }
+        .node-circle:hover  { fill: #f0f0f0; }
+
+        .node-label { font-size: 12px; font-weight: 500; pointer-events: none; text-anchor: middle; dominant-baseline: auto; }
+        .node-year  { font-size: 10px; fill: #666; pointer-events: none; text-anchor: middle; }
+
+        .edge-father { stroke: #4a90e2; stroke-width: 2; fill: none; }
+        .edge-mother { stroke: #e94b8f; stroke-width: 2; fill: none; }
+
+        #tree-info-bar { background: linear-gradient(135deg, #0d6efd, #0a58ca); color: white; padding: 10px 16px; border-radius: 8px 8px 0 0; }
+        #tree-description { font-size: 0.85rem; opacity: 0.85; }
+
         .badge-male   { background-color: #4a90e2; }
         .badge-female { background-color: #e94b8f; }
         .badge-group  { background-color: #6c757d; margin-right: 2px; }
 
-        /* Tree info bar */
-        #tree-info-bar {
-            background: linear-gradient(135deg, #0d6efd, #0a58ca);
-            color: white;
-            padding: 10px 16px;
-            border-radius: 8px 8px 0 0;
-        }
-
-        #tree-description {
-            font-size: 0.85rem;
-            opacity: 0.85;
-        }
-
-        /* Person details */
         #person-details { display: none; }
         #person-details.show { display: block; }
 
-        /* Sidebar card headers */
         .sidebar-header { font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-<!-- ─── Access Code Modal ─────────────────────────────────── -->
+<!-- Modal -->
 <div class="modal fade" id="access-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
@@ -80,38 +64,36 @@
                     <input type="text" class="form-control form-control-lg font-monospace"
                            id="modal-access-code" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
-                <div id="modal-error" class="alert alert-danger d-none" role="alert"></div>
+                <div id="modal-error" class="alert alert-danger d-none"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary w-100" onclick="enterTree()">
-                    <i class="bi bi-box-arrow-in-right me-1"></i> Enter Tree
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Enter Tree
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ─── Navbar ────────────────────────────────────────────── -->
+<!-- Navbar -->
 <nav class="navbar navbar-dark bg-primary">
     <div class="container-fluid">
         <span class="navbar-brand mb-0 h1"><i class="bi bi-diagram-3 me-2"></i>Family Tree</span>
         <div class="d-flex align-items-center gap-2">
             <span class="text-white-50 small" id="nav-tree-name"></span>
-            <button class="btn btn-outline-light btn-sm" onclick="switchTree()">
+            <button class="btn btn-outline-light btn-sm" onclick="logout()">
                 <i class="bi bi-box-arrow-right me-1"></i>Log Out
             </button>
         </div>
     </div>
 </nav>
 
-<!-- ─── Main Content ──────────────────────────────────────── -->
+<!-- Main -->
 <div id="main-content" class="container-fluid mt-4">
     <div class="row">
 
-        <!-- Left Sidebar -->
+        <!-- Sidebar -->
         <div class="col-md-3">
-
-            <!-- Add / Edit Person -->
             <div class="card mb-3">
                 <div class="card-header bg-primary text-white sidebar-header">
                     <h6 class="mb-0" id="form-title"><i class="bi bi-person-plus me-1"></i>Add New Person</h6>
@@ -119,27 +101,22 @@
                 <div class="card-body">
                     <form id="person-form">
                         <input type="hidden" id="edit-person-id">
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">First Name *</label>
                             <input type="text" class="form-control form-control-sm" id="first_name" required>
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Middle Name</label>
                             <input type="text" class="form-control form-control-sm" id="middle_name">
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Last Name *</label>
                             <input type="text" class="form-control form-control-sm" id="last_name" required>
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Nickname</label>
                             <input type="text" class="form-control form-control-sm" id="nick_name">
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Sex *</label>
                             <select class="form-select form-select-sm" id="sex" required>
@@ -148,43 +125,35 @@
                                 <option value="female">Female</option>
                             </select>
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Father</label>
                             <select class="form-select form-select-sm" id="father_id">
                                 <option value="">None</option>
                             </select>
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Mother</label>
                             <select class="form-select form-select-sm" id="mother_id">
                                 <option value="">None</option>
                             </select>
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Family Groups</label>
-                            <input type="text" class="form-control form-control-sm" id="family_groups"
-                                   placeholder="e.g. 1,2,3">
+                            <input type="text" class="form-control form-control-sm" id="family_groups" placeholder="e.g. 1,2,3">
                             <div class="form-text">Comma-separated. Leave blank to auto-assign.</div>
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Birthday</label>
                             <input type="date" class="form-control form-control-sm" id="birthday">
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Place of Birth</label>
                             <input type="text" class="form-control form-control-sm" id="place_of_birth">
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label form-label-sm">Current Location</label>
                             <input type="text" class="form-control form-control-sm" id="current_location">
                         </div>
-
                         <button type="submit" class="btn btn-primary btn-sm w-100" id="submit-btn">
                             <i class="bi bi-plus-circle me-1"></i>Add Person
                         </button>
@@ -196,7 +165,6 @@
                 </div>
             </div>
 
-            <!-- Actions -->
             <div class="card mb-3">
                 <div class="card-header bg-secondary text-white sidebar-header">
                     <h6 class="mb-0"><i class="bi bi-gear me-1"></i>Actions</h6>
@@ -216,13 +184,10 @@
                     </button>
                 </div>
             </div>
-
         </div>
 
-        <!-- Main Panel -->
+        <!-- Main panel -->
         <div class="col-md-9">
-
-            <!-- Tree info bar + canvas -->
             <div id="tree-info-bar" class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="fw-semibold" id="bar-tree-name">Family Tree</div>
@@ -230,16 +195,17 @@
                 </div>
                 <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
             </div>
-            <div id="tree-container"></div>
 
-            <!-- Person Details -->
-            <div class="card person-card mt-3" id="person-details">
+            <div id="tree-container">
+                <svg id="tree-svg"></svg>
+            </div>
+
+            <div class="card mt-3" id="person-details">
                 <div class="card-header bg-info text-white sidebar-header">
                     <h6 class="mb-0"><i class="bi bi-person-lines-fill me-1"></i>Person Details</h6>
                 </div>
                 <div class="card-body" id="person-details-content"></div>
             </div>
-
         </div>
     </div>
 </div>
@@ -247,54 +213,40 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-    const API_BASE = 'http://192.168.1.20:5000/api';
+    const API_BASE    = 'http://192.168.1.20:5000/api';
     const STORAGE_KEY = 'family_tree_access_code';
 
-    let accessCode  = null;
-    let treeData    = null;
-    let svg         = null;
-    let g           = null;
-    let savedPositions = new Map();
-    let accessModal = null;
+    let accessCode       = null;
+    let treeData         = null;
+    let positions        = {};   // { uuid: {x, y} }
+    let accessModal      = null;
+    let positionSaveTimer = null;
 
-    // ─── Helpers ─────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────
+    const displayName = p => {
+        let n = p.first_name;
+        if (p.middle_name) n += ` ${p.middle_name}`;
+        n += ` ${p.last_name}`;
+        if (p.nick_name) n += ` "${p.nick_name}"`;
+        return n;
+    };
+    const shortName = p => `${p.first_name} ${p.last_name}`;
+    const apiHeaders = () => ({ 'Content-Type': 'application/json', 'X-Access-Code': accessCode });
 
-    function displayName(p) {
-        // "First [Middle] Last" with optional nickname in quotes
-        let name = p.first_name;
-        if (p.middle_name) name += ` ${p.middle_name}`;
-        name += ` ${p.last_name}`;
-        if (p.nick_name) name += ` "${p.nick_name}"`;
-        return name;
-    }
-
-    function shortName(p) {
-        // "First Last" for dropdowns and node labels
-        return `${p.first_name} ${p.last_name}`;
-    }
-
-    // ─── Boot ────────────────────────────────────────────────
-
+    // ── Boot ──────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
         accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
-        initializeTree();
-
         document.getElementById('person-form').addEventListener('submit', savePerson);
         document.getElementById('modal-access-code').addEventListener('keydown', e => {
             if (e.key === 'Enter') enterTree();
         });
 
         const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            accessCode = stored;
-            loadTree();
-        } else {
-            showModal();
-        }
+        if (stored) { accessCode = stored; loadTree(); }
+        else showModal();
     });
 
-    // ─── Auth / Modal ─────────────────────────────────────────
-
+    // ── Auth ──────────────────────────────────────────────────
     function showModal() {
         document.getElementById('main-content').classList.add('blurred');
         document.getElementById('modal-error').classList.add('d-none');
@@ -303,23 +255,17 @@
     }
 
     async function enterTree() {
-        const code = document.getElementById('modal-access-code').value.trim();
+        const code  = document.getElementById('modal-access-code').value.trim();
         const errEl = document.getElementById('modal-error');
-
-        if (!code) {
-            errEl.textContent = 'Please enter an access code.';
-            errEl.classList.remove('d-none');
-            return;
-        }
+        if (!code) { errEl.textContent = 'Please enter an access code.'; errEl.classList.remove('d-none'); return; }
 
         try {
-            const res = await fetch(`${API_BASE}/tree/enter`, {
+            const res  = await fetch(`${API_BASE}/tree/enter`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ access_code: code })
             });
             const data = await res.json();
-
             if (data.success) {
                 accessCode = code;
                 localStorage.setItem(STORAGE_KEY, code);
@@ -331,18 +277,15 @@
                 errEl.textContent = 'Invalid access code. Please try again.';
                 errEl.classList.remove('d-none');
             }
-        } catch (err) {
-            errEl.textContent = 'Could not reach the server. Please try again.';
-            errEl.classList.remove('d-none');
-        }
+        } catch { errEl.textContent = 'Could not reach the server.'; errEl.classList.remove('d-none'); }
     }
 
-    function switchTree() {
+    function logout() {
         accessCode = null;
+        positions  = {};
+        treeData   = null;
         localStorage.removeItem(STORAGE_KEY);
-        savedPositions.clear();
-        treeData = null;
-        if (g) g.selectAll('*').remove();
+        document.getElementById('tree-svg').innerHTML = '';
         document.getElementById('nav-tree-name').textContent = '';
         document.getElementById('bar-tree-name').textContent = 'Family Tree';
         document.getElementById('tree-description').textContent = '';
@@ -357,131 +300,178 @@
         document.getElementById('tree-description').textContent = tree.description || '';
     }
 
-    function apiHeaders() {
-        return {
-            'Content-Type': 'application/json',
-            'X-Access-Code': accessCode
-        };
-    }
-
-    // ─── Tree init ────────────────────────────────────────────
-
-    function initializeTree() {
-        const container = document.getElementById('tree-container');
-        const width  = container.clientWidth || 900;
-        const height = 560;
-
-        svg = d3.select('#tree-container')
-            .append('svg')
-            .attr('width', width)
-            .attr('height', height);
-
-        g = svg.append('g').attr('transform', 'translate(40,40)');
-
-        svg.call(
-            d3.zoom().scaleExtent([0.1, 3]).on('zoom', e => g.attr('transform', e.transform))
-        );
-    }
-
-    // ─── Load & Visualize ─────────────────────────────────────
-
+    // ── Load tree ─────────────────────────────────────────────
     async function loadTree() {
         try {
             const res  = await fetch(`${API_BASE}/export`, { headers: apiHeaders() });
             const data = await res.json();
-
             if (data.success) {
                 treeData = data.tree;
-                updateStats(treeData.nodes.length);
-                visualizeTree(treeData);
+                document.getElementById('tree-stats').textContent =
+                    `${treeData.nodes.length} ${treeData.nodes.length === 1 ? 'person' : 'people'}`;
                 populateParentDropdowns();
+                renderTree();
             }
-        } catch (err) {
-            console.error('Error loading tree:', err);
-        }
+        } catch (e) { console.error('loadTree error:', e); }
     }
 
-    function visualizeTree(data) {
-        g.selectAll('*').remove();
+    // ── Render ────────────────────────────────────────────────
+    function renderTree() {
+        const svg = document.getElementById('tree-svg');
+        svg.innerHTML = '';
 
-        if (!data.nodes || data.nodes.length === 0) {
-            g.append('text').attr('x', 300).attr('y', 200)
-                .attr('text-anchor', 'middle')
-                .style('font-size', '16px').style('fill', '#999')
-                .text('No people yet. Add someone to get started!');
+        if (!treeData || treeData.nodes.length === 0) {
+            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t.setAttribute('x', '400'); t.setAttribute('y', '200');
+            t.setAttribute('text-anchor', 'middle');
+            t.style.fontSize = '16px'; t.style.fill = '#999';
+            t.textContent = 'No people yet. Add someone to get started!';
+            svg.appendChild(t);
             return;
         }
 
-        const hierarchy  = buildHierarchy(data);
-        const treeLayout = d3.tree().size([820, 480])
-            .separation((a, b) => a.parent === b.parent ? 1 : 1.2);
-        const root = d3.hierarchy(hierarchy);
-        treeLayout(root);
+        // D3 layout for initial positions only
+        const hier   = buildHierarchy(treeData);
+        const layout = d3.tree().size([820, 460]).separation((a, b) => a.parent === b.parent ? 1 : 1.5);
+        const root   = d3.hierarchy(hier);
+        layout(root);
 
-        // Position map — preserve dragged positions
-        const posMap = new Map();
+        // Assign positions — DB first, then in-memory, then layout
         root.descendants().forEach(d => {
-            if (savedPositions.has(d.data.id)) {
-                const s = savedPositions.get(d.data.id);
-                posMap.set(d.data.id, { x: s.x, y: s.y });
-            } else {
-                posMap.set(d.data.id, { x: d.x, y: d.y });
-                savedPositions.set(d.data.id, { x: d.x, y: d.y });
+            const id = d.data.id;
+            if (id === 'root') return;
+            const dbNode = treeData.nodes.find(n => n.id === id);
+            if (dbNode && dbNode.pos_x != null && dbNode.pos_y != null) {
+                positions[id] = { x: dbNode.pos_x, y: dbNode.pos_y };
+            } else if (!positions[id]) {
+                positions[id] = { x: d.x + 40, y: d.y + 40 };
             }
         });
 
-        // Links group
-        const linksG = g.append('g').attr('class', 'links');
+        // Create a pan/zoom group via D3 (on the SVG background only)
+        const svgSel  = d3.select('#tree-svg');
+        const gSel    = svgSel.append('g').attr('id', 'tree-g');
+        const edgeG   = gSel.append('g').attr('id', 'edges');
+        const nodeG   = gSel.append('g').attr('id', 'nodes');
 
-        function updateLinks() {
-            linksG.selectAll('path').remove();
-            data.edges.forEach(edge => {
-                const s = posMap.get(edge.source);
-                const t = posMap.get(edge.target);
-                if (s && t) {
-                    linksG.append('path')
-                        .attr('d', `M${s.x},${s.y} L${t.x},${t.y}`)
-                        .style('fill', 'none')
-                        .style('stroke', edge.relation === 'father' ? '#4a90e2' : '#e94b8f')
-                        .style('stroke-width', 2);
-                }
+        // Zoom on background
+        svgSel.call(
+            d3.zoom().scaleExtent([0.1, 3]).on('zoom', e => gSel.attr('transform', e.transform))
+        );
+
+        // Draw edges
+        function drawEdges() {
+            edgeG.selectAll('*').remove();
+            treeData.edges.forEach(edge => {
+                const s = positions[edge.source];
+                const t = positions[edge.target];
+                if (!s || !t) return;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
+                line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+                line.setAttribute('class', edge.relation === 'father' ? 'edge-father' : 'edge-mother');
+                edgeG.node().appendChild(line);
             });
         }
-        updateLinks();
+        drawEdges();
 
-        // Drag
-        const drag = d3.drag()
-            .on('start', function () { d3.select(this).raise().style('cursor', 'grabbing'); })
-            .on('drag', function (event, d) {
-                posMap.get(d.data.id).x = event.x;
-                posMap.get(d.data.id).y = event.y;
-                savedPositions.set(d.data.id, { x: event.x, y: event.y });
-                d3.select(this).attr('transform', `translate(${event.x},${event.y})`);
-                updateLinks();
-            })
-            .on('end', function () { d3.select(this).style('cursor', 'pointer'); });
+        // Draw nodes
+        treeData.nodes.forEach(person => {
+            const pos = positions[person.id];
+            if (!pos) return;
 
-        // Nodes
-        const node = g.selectAll('.node')
-            .data(root.descendants())
-            .enter().append('g')
-            .attr('class', 'node')
-            .attr('transform', d => { const p = posMap.get(d.data.id); return `translate(${p.x},${p.y})`; })
-            .style('cursor', 'pointer')
-            .call(drag)
-            .on('click', (event, d) => { if (!event.defaultPrevented) showPersonDetails(d.data.id); });
+            const grp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            grp.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+            grp.setAttribute('data-id', person.id);
 
-        node.append('circle').attr('r', 20)
-            .attr('class', d => d.data.sex === 'M' ? 'male' : 'female');
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', '20');
+            circle.setAttribute('class', `node-circle ${person.sex === 'M' ? 'male' : 'female'}`);
+            grp.appendChild(circle);
 
-        node.append('text').attr('dy', 35).attr('text-anchor', 'middle')
-            .text(d => shortName(d.data));
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('dy', '35');
+            label.setAttribute('class', 'node-label');
+            label.textContent = shortName(person);
+            grp.appendChild(label);
 
-        node.append('text').attr('dy', 48).attr('text-anchor', 'middle')
-            .style('font-size', '10px').style('fill', '#666')
-            .text(d => d.data.birthday ? `(${d.data.birthday.split('-')[0]})` : '');
+            if (person.birthday) {
+                const yr = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                yr.setAttribute('dy', '48');
+                yr.setAttribute('class', 'node-year');
+                yr.textContent = `(${person.birthday.split('-')[0]})`;
+                grp.appendChild(yr);
+            }
+
+            nodeG.node().appendChild(grp);
+
+            // ── Native drag ──────────────────────────────────
+            let dragStartX, dragStartY, origX, origY, moved = false;
+
+            grp.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                moved      = false;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                origX      = positions[person.id].x;
+                origY      = positions[person.id].y;
+
+                function onMouseMove(ev) {
+                    const gEl     = document.getElementById('tree-g');
+                    const matrix  = gEl.getCTM(); // actual screen transform
+                    const scale   = matrix ? matrix.a : 1;
+                    const dx      = (ev.clientX - dragStartX) / scale;
+                    const dy      = (ev.clientY - dragStartY) / scale;
+
+                    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+                    if (!moved) return;
+
+                    positions[person.id].x = origX + dx;
+                    positions[person.id].y = origY + dy;
+
+                    grp.setAttribute('transform',
+                        `translate(${positions[person.id].x},${positions[person.id].y})`);
+                    drawEdges();
+                }
+
+                function onMouseUp() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+
+                    if (moved) {
+                        const finalPos = { ...positions[person.id] };
+                        console.log('[DEBUG] Drag end:', person.id, finalPos);
+                        clearTimeout(positionSaveTimer);
+                        positionSaveTimer = setTimeout(() => savePositionToDB(person.id, finalPos), 300);
+                    } else {
+                        showPersonDetails(person.id);
+                    }
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
     }
 
+    // ── Save position ─────────────────────────────────────────
+    async function savePositionToDB(personId, pos) {
+        console.log('[DEBUG] savePositionToDB called:', personId, pos);
+        try {
+            const res  = await fetch(`${API_BASE}/person/${personId}/position`, {
+                method: 'PUT',
+                headers: apiHeaders(),
+                body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y })
+            });
+            const data = await res.json();
+            console.log('[DEBUG] Position save result:', data);
+        } catch (e) {
+            console.warn('[DEBUG] Failed to save position:', e);
+        }
+    }
+
+    // ── Hierarchy builder ─────────────────────────────────────
     function buildHierarchy(data) {
         const nodeMap = new Map();
         data.nodes.forEach(n => nodeMap.set(n.id, { ...n, children: [] }));
@@ -490,51 +480,46 @@
         data.edges.forEach(e => {
             if (!childToParents.has(e.target)) childToParents.set(e.target, { father: null, mother: null });
             if (e.relation === 'father') childToParents.get(e.target).father = e.source;
-            else if (e.relation === 'mother') childToParents.get(e.target).mother = e.source;
+            else childToParents.get(e.target).mother = e.source;
         });
 
         childToParents.forEach((parents, childId) => {
-            const child = nodeMap.get(childId);
-            const primaryParentId = parents.father || parents.mother;
-            if (primaryParentId) {
-                const parent = nodeMap.get(primaryParentId);
-                if (parent && !parent.children.includes(child)) parent.children.push(child);
+            const primaryId = parents.father || parents.mother;
+            if (primaryId) {
+                const parent = nodeMap.get(primaryId);
+                const child  = nodeMap.get(childId);
+                if (parent && child && !parent.children.includes(child)) parent.children.push(child);
             }
         });
 
         const childIds = new Set(data.edges.map(e => e.target));
-        const roots = data.nodes.filter(n => !childIds.has(n.id));
+        const roots    = data.nodes.filter(n => !childIds.has(n.id));
 
         if (roots.length === 0) return nodeMap.get(data.nodes[0].id);
         if (roots.length === 1) return nodeMap.get(roots[0].id);
-        return { id: 'root', name: 'Family Tree', male: true, children: roots.map(r => nodeMap.get(r.id)) };
+        return { id: 'root', name: 'root', children: roots.map(r => nodeMap.get(r.id)) };
     }
 
-    // ─── Dropdowns ────────────────────────────────────────────
-
+    // ── Dropdowns ─────────────────────────────────────────────
     function populateParentDropdowns() {
         if (!treeData?.nodes) return;
         const fSel = document.getElementById('father_id');
         const mSel = document.getElementById('mother_id');
         fSel.innerHTML = '<option value="">None</option>';
         mSel.innerHTML = '<option value="">None</option>';
-
         treeData.nodes.forEach(p => {
             const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = shortName(p);
+            opt.value = p.id; opt.textContent = shortName(p);
             if (p.sex === 'M') fSel.appendChild(opt.cloneNode(true));
             if (p.sex === 'F') mSel.appendChild(opt.cloneNode(true));
         });
     }
 
-    // ─── Person CRUD ──────────────────────────────────────────
-
-    async function savePerson(event) {
-        event.preventDefault();
+    // ── Person CRUD ───────────────────────────────────────────
+    async function savePerson(e) {
+        e.preventDefault();
         const editId = document.getElementById('edit-person-id').value;
-
-        const fgRaw = document.getElementById('family_groups').value.trim();
+        const fgRaw  = document.getElementById('family_groups').value.trim();
         const familyGroups = fgRaw
             ? fgRaw.split(',').map(g => parseInt(g.trim())).filter(g => !isNaN(g))
             : undefined;
@@ -556,24 +541,15 @@
         try {
             const url    = editId ? `${API_BASE}/person/${editId}` : `${API_BASE}/person`;
             const method = editId ? 'PUT' : 'POST';
-
             const res    = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(payload) });
             const result = await res.json();
-
-            if (result.success) {
-                cancelEdit();
-                loadTree();
-            } else {
-                alert('Error: ' + result.error);
-            }
-        } catch (err) {
-            alert('Failed to save person.');
-        }
+            if (result.success) { cancelEdit(); loadTree(); }
+            else alert('Error: ' + result.error);
+        } catch { alert('Failed to save person.'); }
     }
 
     async function showPersonDetails(personId) {
         if (!personId || personId === 'root') return;
-
         try {
             const [pRes, parRes] = await Promise.all([
                 fetch(`${API_BASE}/person/${personId}`,         { headers: apiHeaders() }),
@@ -581,13 +557,13 @@
             ]);
             const pData   = await pRes.json();
             const parData = await parRes.json();
-
             if (!pData.success) return;
 
-            const p       = pData.person;
+            const p        = pData.person;
             const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
             const sexText  = p.sex === 'M' ? 'Male' : 'Female';
-            const groups   = (p.family_groups || []).map(g => `<span class="badge badge-group">Group ${g}</span>`).join(' ');
+            const groups   = (p.family_groups || []).map(g =>
+                `<span class="badge badge-group">Group ${g}</span>`).join(' ');
 
             let html = `
                 <div class="row">
@@ -614,14 +590,11 @@
                 if (parData.parents.father) html += `<div class="col-sm-4"><small class="text-muted">Father</small><div>${displayName(parData.parents.father)}</div></div>`;
                 if (parData.parents.mother) html += `<div class="col-sm-4"><small class="text-muted">Mother</small><div>${displayName(parData.parents.mother)}</div></div>`;
             }
-
-            html += `</div>`;
+            html += '</div>';
 
             document.getElementById('person-details-content').innerHTML = html;
             document.getElementById('person-details').classList.add('show');
-        } catch (err) {
-            console.error('Error fetching person details:', err);
-        }
+        } catch (e) { console.error('showPersonDetails error:', e); }
     }
 
     async function editPerson(personId) {
@@ -635,16 +608,16 @@
             if (!pData.success) return;
 
             const p = pData.person;
-            document.getElementById('edit-person-id').value    = personId;
-            document.getElementById('first_name').value         = p.first_name || '';
-                    document.getElementById('middle_name').value        = p.middle_name || '';
-                    document.getElementById('last_name').value          = p.last_name || '';
-                    document.getElementById('nick_name').value          = p.nick_name || '';
-            document.getElementById('sex').value               = p.sex === 'M' ? 'male' : 'female';
-            document.getElementById('birthday').value          = p.birthday || '';
-            document.getElementById('place_of_birth').value    = p.place_of_birth || '';
-            document.getElementById('current_location').value  = p.current_location || '';
-            document.getElementById('family_groups').value     = (p.family_groups || []).join(', ');
+            document.getElementById('edit-person-id').value   = personId;
+            document.getElementById('first_name').value       = p.first_name || '';
+            document.getElementById('middle_name').value      = p.middle_name || '';
+            document.getElementById('last_name').value        = p.last_name || '';
+            document.getElementById('nick_name').value        = p.nick_name || '';
+            document.getElementById('sex').value              = p.sex === 'M' ? 'male' : 'female';
+            document.getElementById('birthday').value         = p.birthday || '';
+            document.getElementById('place_of_birth').value   = p.place_of_birth || '';
+            document.getElementById('current_location').value = p.current_location || '';
+            document.getElementById('family_groups').value    = (p.family_groups || []).join(', ');
 
             if (parData.success) {
                 document.getElementById('father_id').value = parData.parents.father?.id || '';
@@ -655,9 +628,7 @@
             document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-check-circle me-1"></i>Update Person';
             document.getElementById('cancel-btn').style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (err) {
-            alert('Failed to load person for editing.');
-        }
+        } catch { alert('Failed to load person for editing.'); }
     }
 
     function cancelEdit() {
@@ -668,24 +639,17 @@
         document.getElementById('cancel-btn').style.display = 'none';
     }
 
-    // ─── Actions ──────────────────────────────────────────────
-
-    function updateStats(count) {
-        document.getElementById('tree-stats').textContent = `${count} ${count === 1 ? 'person' : 'people'}`;
-    }
-
+    // ── Actions ───────────────────────────────────────────────
     async function exportTree() {
         try {
             const res  = await fetch(`${API_BASE}/export`, { headers: apiHeaders() });
             const data = await res.json();
             if (data.success) {
                 const blob = new Blob([JSON.stringify(data.tree, null, 2)], { type: 'application/json' });
-                const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'family_tree.json' });
-                a.click();
+                Object.assign(document.createElement('a'),
+                    { href: URL.createObjectURL(blob), download: 'family_tree.json' }).click();
             }
-        } catch (err) {
-            alert('Failed to export tree.');
-        }
+        } catch { alert('Failed to export tree.'); }
     }
 
     async function showStats() {
@@ -696,9 +660,7 @@
                 const s = data.stats;
                 alert(`Family Tree Statistics\n\nPeople: ${s.total_people}\nRelationships: ${s.total_relationships}\nFamily Groups: ${s.total_groups}`);
             }
-        } catch (err) {
-            alert('Failed to fetch stats.');
-        }
+        } catch { alert('Failed to fetch stats.'); }
     }
 
     async function showGroups() {
@@ -709,39 +671,12 @@
                 let msg = `Family Groups (${data.count} total)\n\n`;
                 for (const [id, members] of Object.entries(data.groups)) {
                     msg += `Group ${id}: ${members.length} member(s)\n`;
-                                            members.forEach(m => msg += `  - ${shortName(m)} (${m.sex})\n`);
+                    members.forEach(m => msg += `  - ${shortName(m)} (${m.sex})\n`);
                     msg += '\n';
                 }
                 alert(msg);
             }
-        } catch (err) {
-            alert('Failed to fetch groups.');
-        }
-    }
-
-    function confirmClearTree() {
-        if (confirm('⚠️ WARNING\n\nThis will delete ALL people and relationships.\nThis action CANNOT be undone!\n\nAre you sure?')) {
-            clearTree();
-        }
-    }
-
-    async function clearTree() {
-        try {
-            const res  = await fetch(`${API_BASE}/import`, {
-                method: 'POST',
-                headers: apiHeaders(),
-                body: JSON.stringify({ tree: { nodes: [], edges: [] } })
-            });
-            const data = await res.json();
-            if (data.success) {
-                savedPositions.clear();
-                loadTree();
-            } else {
-                alert('Error clearing tree: ' + data.error);
-            }
-        } catch (err) {
-            alert('Failed to clear tree.');
-        }
+        } catch { alert('Failed to fetch groups.'); }
     }
 </script>
 </body>

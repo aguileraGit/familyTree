@@ -59,6 +59,8 @@ def record_to_person(record) -> Dict[str, Any]:
         'birthday': record.birthday or None,
         'place_of_birth': record.place_of_birth or None,
         'current_location': record.current_location or None,
+        'pos_x': getattr(record, 'pos_x', None),
+        'pos_y': getattr(record, 'pos_y', None),
     }
 
 
@@ -305,6 +307,34 @@ def update_person(person_uuid, tree_uuid=None):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
+@app.route('/api/person/<person_uuid>/position', methods=['PUT'])
+@require_tree
+def update_position(person_uuid, tree_uuid=None):
+    """
+    Update a person's canvas position.
+
+    Request body:
+    {
+        "pos_x": 123.45,
+        "pos_y": 678.90
+    }
+    """
+    record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
+    if not record:
+        return jsonify({'success': False, 'error': 'Person not found'}), 404
+
+    data = request.json
+
+    try:
+        pb.collection('people').update(record.id, {
+            'pos_x': data.get('pos_x'),
+            'pos_y': data.get('pos_y'),
+        })
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
 @app.route('/api/person/<person_uuid>/parents', methods=['GET'])
 @require_tree
 def get_parents(person_uuid, tree_uuid=None):
@@ -490,6 +520,7 @@ def index():
             'POST /api/person': 'Add a new person',
             'GET /api/person/<id>': 'Get person details',
             'PUT /api/person/<id>': 'Update person details',
+            'PUT /api/person/<id>/position': 'Update person canvas position',
             'GET /api/person/<id>/parents': 'Get parents of a person',
             'GET /api/person/<id>/children': 'Get children of a person',
             'GET /api/person/<id>/siblings': 'Get siblings of a person',
