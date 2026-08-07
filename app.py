@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Optional, Dict, Any
 
 import networkx as nx
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from pocketbase import PocketBase
 
@@ -509,8 +509,28 @@ def get_stats(tree_uuid=None):
 # API index
 # ─────────────────────────────────────────────
 
+# ─────────────────────────────────────────────
+# Page routes
+# ─────────────────────────────────────────────
+
 @app.route('/', methods=['GET'])
 def index():
+    """Serve the main family tree page."""
+    return render_template('index.html')
+
+
+@app.route('/landing', methods=['GET'])
+def landing():
+    """Serve the landing page."""
+    return render_template('landing.html')
+
+
+# ─────────────────────────────────────────────
+# API index
+# ─────────────────────────────────────────────
+
+@app.route('/api', methods=['GET'])
+def api_index():
     """API documentation."""
     return jsonify({
         'name': 'Family Tree REST API',
