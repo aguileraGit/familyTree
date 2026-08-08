@@ -427,7 +427,61 @@ def get_all_people(tree_uuid=None):
 # Group endpoints
 # ─────────────────────────────────────────────
 
-@app.route('/api/groups', methods=['GET'])
+@app.route('/api/people/generations', methods=['GET'])
+@require_tree
+def get_generations(tree_uuid=None):
+    """
+    Calculate and return the generation depth for each person.
+    Generation 0 = oldest known ancestors (no parents in tree).
+    Each subsequent generation increments by 1.
+    """
+    records = get_people_for_tree(tree_uuid)
+    graph   = build_graph(records)
+
+    generation = {}
+
+    # Roots are nodes with no incoming edges (no parents in tree)
+    roots = [n for n in graph.nodes if graph.in_degree(n) == 0]
+
+    # BFS from all roots simultaneously
+    queue = list(roots)
+    for r in roots:
+        generation[r] = 0
+
+    while queue:
+        current = queue.pop(0)
+        for child in graph.successors(current):
+            # A child's generation is the max of all parents' generations + 1
+            # This handles blended families correctly
+            parent_gen = max(
+                generation[p]
+                for p in graph.predecessors(child)
+                if p in generation
+            )
+            new_gen = parent_gen + 1
+            if child not in generation or generation[child] < new_gen:
+                generation[child] = new_gen
+                queue.append(child)
+
+    # Build response with person details
+    result = []
+    for record in records:
+        uuid = record.person_uuid
+        result.append({
+            'id':         uuid,
+            'first_name': record.first_name,
+            'last_name':  record.last_name,
+            'generation': generation.get(uuid, 0)
+        })
+
+    # Find total number of generations
+    max_gen = max((r['generation'] for r in result), default=0)
+
+    return jsonify({
+        'success':     True,
+        'people':      result,
+        'max_generation': max_gen
+    }), 200
 @require_tree
 def get_all_groups(tree_uuid=None):
     """Get all family groups."""
@@ -545,6 +599,7 @@ def api_index():
             'GET /api/person/<id>/children': 'Get children of a person',
             'GET /api/person/<id>/siblings': 'Get siblings of a person',
             'GET /api/people': 'Get all people',
+            'GET /api/people/generations': 'Get generation depth for each person',
             'GET /api/groups': 'Get all family groups',
             'GET /api/group/<id>': 'Get members of a specific group',
             'GET /api/export': 'Export family tree',

@@ -188,6 +188,12 @@
                     <button class="btn btn-outline-primary btn-sm" onclick="showGroups()">
                         <i class="bi bi-people me-1"></i>View Groups
                     </button>
+                    <hr class="my-1">
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                        <input class="form-check-input m-0" type="checkbox" role="switch"
+                               id="generation-toggle" onchange="onGenerationToggle(this.checked)">
+                        <label class="form-check-label small" for="generation-toggle">View by Generation</label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -461,8 +467,69 @@
         });
     }
 
+    // ── Generation view ───────────────────────────────────────
+
+    async function onGenerationToggle(checked) {
+        generationMode = checked;
+
+        if (checked) {
+            await applyGenerationLayout();
+        } else {
+            // Uncheck — reload from DB, restoring saved positions
+            positions = {};
+            await loadTree();
+            // Reset checkbox state (loadTree may re-render)
+            document.getElementById('generation-toggle').checked = false;
+            generationMode = false;
+        }
+    }
+
+    async function applyGenerationLayout() {
+        try {
+            const res  = await fetch(`${API_BASE}/people/generations`, { headers: apiHeaders() });
+            const data = await res.json();
+            if (!data.success) return;
+
+            const svgEl    = document.getElementById('tree-svg');
+            const svgW     = svgEl.clientWidth  || 900;
+            const svgH     = svgEl.clientHeight || 520;
+            const Y_BAND   = 120;  // px between generations
+            const TOP_PAD  = 60;   // top padding
+
+            // Group people by generation
+            const genGroups = {};
+            data.people.forEach(p => {
+                const g = p.generation;
+                if (!genGroups[g]) genGroups[g] = [];
+                genGroups[g].push(p.id);
+            });
+
+            const maxGen = data.max_generation;
+
+            // Assign new positions based on generation
+            Object.entries(genGroups).forEach(([gen, ids]) => {
+                const y      = TOP_PAD + parseInt(gen) * Y_BAND;
+                const count  = ids.length;
+                const xStep  = svgW / (count + 1);
+
+                ids.forEach((id, i) => {
+                    const x = xStep * (i + 1);
+                    positions[id] = { x, y };
+                });
+            });
+
+            // Re-render with new positions (no DB write)
+            renderTree();
+
+        } catch (e) {
+            console.error('applyGenerationLayout error:', e);
+        }
+    }
+
     // ── Save position ─────────────────────────────────────────
     async function savePositionToDB(personId, pos) {
+        // Never write positions to DB while in generation view mode
+        if (generationMode) return;
         console.log('[DEBUG] savePositionToDB called:', personId, pos);
         try {
             const res  = await fetch(`${API_BASE}/person/${personId}/position`, {
