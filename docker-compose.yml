@@ -1,0 +1,11 @@
+services:
+  family_tree:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: family_tree
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
