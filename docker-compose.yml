@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     network_mode: service:ts-family_tree
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
       - FLASK_ENV=production
 

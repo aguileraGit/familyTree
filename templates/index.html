@@ -245,7 +245,75 @@
     const shortName = p => `${p.first_name} ${p.last_name}`;
     const apiHeaders = () => ({ 'Content-Type': 'application/json', 'X-Access-Code': accessCode });
 
-    // ── Boot ──────────────────────────────────────────────────
+    // Shuffle the color list once on load so groups get random but consistent colors
+    const GROUP_COLORS = (() => {
+        const colors = [
+            '#00429d','#0a4fa2','#145ca8','#1f68ad','#2975b2','#3282b7',
+            '#3d8ebc','#479bc1','#51a8c6','#5bb5cc','#65c2d1','#70cfd6',
+            '#7adcdc','#85e9e1','#8ff6e6','#b9ffe7','#ffffe0','#ffeed8',
+            '#ffdecf','#ffcdc6','#ffbbbd','#ffa9b4','#ff96aa','#ff82a0',
+            '#ff6b95','#ff5187','#ff2c74','#f5005b','#e10054','#cd004d',
+            '#b90047','#a60040','#93003a'
+        ];
+        // Fisher-Yates shuffle
+        for (let i = colors.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [colors[i], colors[j]] = [colors[j], colors[i]];
+        }
+        return colors;
+    })();
+
+    function groupColor(groupId) {
+        return GROUP_COLORS[(groupId - 1) % GROUP_COLORS.length];
+    }
+
+    // Draw a circle split into equal segments, one per family group
+    function drawGroupCircle(parent, r, familyGroups) {
+        const groups = (familyGroups && familyGroups.length > 0) ? familyGroups : [0];
+
+        if (groups.length === 1) {
+            // Single color — plain circle
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', r);
+            circle.setAttribute('fill', groups[0] === 0 ? '#ccc' : groupColor(groups[0]));
+            circle.setAttribute('class', 'node-circle');
+            parent.appendChild(circle);
+            return;
+        }
+
+        // Multiple groups — split into equal pie segments
+        const total   = groups.length;
+        const angleStep = (2 * Math.PI) / total;
+
+        groups.forEach((gid, i) => {
+            const startAngle = i * angleStep - Math.PI / 2;
+            const endAngle   = startAngle + angleStep;
+
+            const x1 = r * Math.cos(startAngle);
+            const y1 = r * Math.sin(startAngle);
+            const x2 = r * Math.cos(endAngle);
+            const y2 = r * Math.sin(endAngle);
+
+            const largeArc = angleStep > Math.PI ? 1 : 0;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d',
+                `M 0 0 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`
+            );
+            path.setAttribute('fill', gid === 0 ? '#ccc' : groupColor(gid));
+            path.setAttribute('class', 'node-circle');
+            parent.appendChild(path);
+        });
+
+        // Outer ring to keep the circle border clean
+        const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        ring.setAttribute('r', r);
+        ring.setAttribute('fill', 'none');
+        ring.setAttribute('stroke', '#fff');
+        ring.setAttribute('stroke-width', '1.5');
+        ring.setAttribute('pointer-events', 'none');
+        parent.appendChild(ring);
+    }
     document.addEventListener('DOMContentLoaded', () => {
         accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
         document.getElementById('person-form').addEventListener('submit', savePerson);
@@ -396,10 +464,17 @@
             grp.setAttribute('transform', `translate(${pos.x},${pos.y})`);
             grp.setAttribute('data-id', person.id);
 
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('r', '20');
-            circle.setAttribute('class', `node-circle ${person.sex === 'M' ? 'male' : 'female'}`);
-            grp.appendChild(circle);
+            // Draw grouped color circle
+            drawGroupCircle(grp, 22, person.family_groups);
+
+            // Sex indicator ring — blue for male, pink for female
+            const sexRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            sexRing.setAttribute('r', '22');
+            sexRing.setAttribute('fill', 'none');
+            sexRing.setAttribute('stroke', person.sex === 'M' ? '#4a90e2' : '#e94b8f');
+            sexRing.setAttribute('stroke-width', '3');
+            sexRing.setAttribute('pointer-events', 'none');
+            grp.appendChild(sexRing);
 
             const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             label.setAttribute('dy', '35');
@@ -471,16 +546,30 @@
 
     async function onGenerationToggle(checked) {
         generationMode = checked;
+        setFormDisabled(checked);
 
         if (checked) {
             await applyGenerationLayout();
         } else {
-            // Uncheck — reload from DB, restoring saved positions
             positions = {};
             await loadTree();
-            // Reset checkbox state (loadTree may re-render)
             document.getElementById('generation-toggle').checked = false;
             generationMode = false;
+        }
+    }
+
+    function setFormDisabled(disabled) {
+        const form = document.getElementById('person-form');
+        // Disable/enable all inputs, selects, and buttons inside the form
+        form.querySelectorAll('input, select, button, textarea').forEach(el => {
+            el.disabled = disabled;
+        });
+        // Visual cue on the form card header
+        const header = document.getElementById('form-title');
+        if (disabled) {
+            header.classList.replace('bg-primary', 'bg-secondary');
+        } else {
+            header.classList.replace('bg-secondary', 'bg-primary');
         }
     }
 
