@@ -6,8 +6,6 @@ services:
     container_name: family_tree
     restart: unless-stopped
     network_mode: service:ts-family_tree
-    ports:
-      - "5001:5001"
     environment:
       - FLASK_ENV=production
 
