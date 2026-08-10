@@ -227,7 +227,7 @@ def add_person(tree_uuid=None):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<person_uuid>', methods=['GET'])
+@app.route('/api/person/<path:person_uuid>', methods=['GET'])
 @require_tree
 def get_person(person_uuid, tree_uuid=None):
     """Get information about a specific person."""
@@ -243,7 +243,7 @@ def get_person(person_uuid, tree_uuid=None):
     }), 200
 
 
-@app.route('/api/person/<person_uuid>', methods=['PUT'])
+@app.route('/api/person/<path:person_uuid>', methods=['PUT'])
 @require_tree
 def update_person(person_uuid, tree_uuid=None):
     """
@@ -307,7 +307,7 @@ def update_person(person_uuid, tree_uuid=None):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<person_uuid>/position', methods=['PUT'])
+@app.route('/api/person/<path:person_uuid>/position', methods=['PUT'])
 @require_tree
 def update_position(person_uuid, tree_uuid=None):
     """
@@ -335,7 +335,7 @@ def update_position(person_uuid, tree_uuid=None):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<person_uuid>/parents', methods=['GET'])
+@app.route('/api/person/<path:person_uuid>/parents', methods=['GET'])
 @require_tree
 def get_parents(person_uuid, tree_uuid=None):
     """Get the parents of a person."""
@@ -358,7 +358,7 @@ def get_parents(person_uuid, tree_uuid=None):
     return jsonify({'success': True, 'parents': parents}), 200
 
 
-@app.route('/api/person/<person_uuid>/children', methods=['GET'])
+@app.route('/api/person/<path:person_uuid>/children', methods=['GET'])
 @require_tree
 def get_children(person_uuid, tree_uuid=None):
     """Get all children of a person."""
@@ -377,7 +377,7 @@ def get_children(person_uuid, tree_uuid=None):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<person_uuid>/siblings', methods=['GET'])
+@app.route('/api/person/<path:person_uuid>/siblings', methods=['GET'])
 @require_tree
 def get_siblings(person_uuid, tree_uuid=None):
     """Get all siblings of a person (share at least one parent)."""

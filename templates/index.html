@@ -23,32 +23,24 @@
 
         #tree-svg { width: 100%; height: 100%; }
 
-        .node-circle { cursor: grab; }
+        .node-circle        { cursor: grab; }
         .node-circle:active { cursor: grabbing; }
-        .node-circle.male   { fill: white; stroke: #4a90e2; stroke-width: 3; }
-        .node-circle.female { fill: white; stroke: #e94b8f; stroke-width: 3; }
-        .node-circle:hover  { fill: #f0f0f0; }
-
-        .node-label { font-size: 12px; font-weight: 500; pointer-events: none; text-anchor: middle; dominant-baseline: auto; }
-        .node-year  { font-size: 10px; fill: #666; pointer-events: none; text-anchor: middle; }
-
-        .edge-father { stroke: #4a90e2; stroke-width: 2; fill: none; }
-        .edge-mother { stroke: #e94b8f; stroke-width: 2; fill: none; }
+        .node-label         { font-size: 11px; font-weight: 500; pointer-events: none; text-anchor: middle; dominant-baseline: auto; }
+        .node-year          { font-size: 9px; fill: #666; pointer-events: none; text-anchor: middle; }
+        .edge-father        { stroke: #4a90e2; stroke-width: 2; fill: none; }
+        .edge-mother        { stroke: #e94b8f; stroke-width: 2; fill: none; }
 
         #tree-info-bar { background: linear-gradient(135deg, #0d6efd, #0a58ca); color: white; padding: 10px 16px; border-radius: 8px 8px 0 0; }
-        #tree-description { font-size: 0.85rem; opacity: 0.85; }
-
-        .col-md-9 { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
-        .card.mb-3 { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
         .badge-male   { background-color: #4a90e2; }
         .badge-female { background-color: #e94b8f; }
         .badge-group  { background-color: #6c757d; margin-right: 2px; }
 
-        #person-details { display: none; }
-        #person-details.show { display: block; }
+        #person-details       { display: none; }
+        #person-details.show  { display: block; }
 
-        .sidebar-header { font-size: 0.9rem; }
+        .col-md-10 { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
+        .card.mb-3 { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -99,9 +91,11 @@
     <div class="row">
 
         <!-- Sidebar -->
-        <div class="col-md-3">
+        <div class="col-md-2">
+
+            <!-- Add / Edit Person -->
             <div class="card mb-3">
-                <div class="card-header bg-primary text-white sidebar-header">
+                <div class="card-header bg-primary text-white" style="font-size:0.9rem;">
                     <h6 class="mb-0" id="form-title"><i class="bi bi-person-plus me-1"></i>Add New Person</h6>
                 </div>
                 <div class="card-body">
@@ -171,8 +165,9 @@
                 </div>
             </div>
 
+            <!-- Actions -->
             <div class="card mb-3">
-                <div class="card-header bg-secondary text-white sidebar-header">
+                <div class="card-header bg-secondary text-white" style="font-size:0.9rem;">
                     <h6 class="mb-0"><i class="bi bi-gear me-1"></i>Actions</h6>
                 </div>
                 <div class="card-body d-grid gap-2">
@@ -196,10 +191,11 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
-        <!-- Main panel -->
-        <div class="col-md-9">
+        <!-- Main Panel -->
+        <div class="col-md-10">
             <div id="tree-info-bar" class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="fw-semibold" id="bar-tree-name">Family Tree</div>
@@ -217,688 +213,722 @@
             </div>
 
             <div class="card mt-3" id="person-details">
-                <div class="card-header bg-info text-white sidebar-header">
+                <div class="card-header bg-info text-white" style="font-size:0.9rem;">
                     <h6 class="mb-0"><i class="bi bi-person-lines-fill me-1"></i>Person Details</h6>
                 </div>
                 <div class="card-body" id="person-details-content"></div>
             </div>
         </div>
+
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-    const API_BASE    = '/api';
-    const STORAGE_KEY = 'family_tree_access_code';
 
-    let accessCode       = null;
-    let treeData         = null;
-    let positions        = {};   // { uuid: {x, y} }
-    let accessModal      = null;
-    let positionSaveTimer = null;
+// ── Global state ──────────────────────────────────────────────
+window.accessCode      = null;
+window.treeData        = null;
+window.positions       = {};
+window.generationMode  = false;
+window.positionSaveTimer = null;
+window.accessModal     = null;
 
-    // ── Helpers ───────────────────────────────────────────────
-    const displayName = p => {
-        let n = p.first_name;
-        if (p.middle_name) n += ` ${p.middle_name}`;
-        n += ` ${p.last_name}`;
-        if (p.nick_name) n += ` "${p.nick_name}"`;
-        return n;
-    };
-    const shortName = p => `${p.first_name} ${p.last_name}`;
-    const apiHeaders = () => ({ 'Content-Type': 'application/json', 'X-Access-Code': accessCode });
+const STORAGE_KEY = 'family_tree_access_code';
 
-    // Shuffle the color list once on load so groups get random but consistent colors
-    const GROUP_COLORS = (() => {
-        const colors = [
-            '#00429d','#0a4fa2','#145ca8','#1f68ad','#2975b2','#3282b7',
-            '#3d8ebc','#479bc1','#51a8c6','#5bb5cc','#65c2d1','#70cfd6',
-            '#7adcdc','#85e9e1','#8ff6e6','#b9ffe7','#ffffe0','#ffeed8',
-            '#ffdecf','#ffcdc6','#ffbbbd','#ffa9b4','#ff96aa','#ff82a0',
-            '#ff6b95','#ff5187','#ff2c74','#f5005b','#e10054','#cd004d',
-            '#b90047','#a60040','#93003a'
-        ];
-        // Fisher-Yates shuffle
-        for (let i = colors.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [colors[i], colors[j]] = [colors[j], colors[i]];
-        }
-        return colors;
-    })();
+// ── Color palette ─────────────────────────────────────────────
+const GROUP_COLORS = (() => {
+    const colors = [
+        '#00429d','#0a4fa2','#145ca8','#1f68ad','#2975b2','#3282b7',
+        '#3d8ebc','#479bc1','#51a8c6','#5bb5cc','#65c2d1','#70cfd6',
+        '#7adcdc','#85e9e1','#8ff6e6','#b9ffe7','#ffffe0','#ffeed8',
+        '#ffdecf','#ffcdc6','#ffbbbd','#ffa9b4','#ff96aa','#ff82a0',
+        '#ff6b95','#ff5187','#ff2c74','#f5005b','#e10054','#cd004d',
+        '#b90047','#a60040','#93003a'
+    ];
+    for (let i = colors.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [colors[i], colors[j]] = [colors[j], colors[i]];
+    }
+    return colors;
+})();
 
-    function groupColor(groupId) {
-        return GROUP_COLORS[(groupId - 1) % GROUP_COLORS.length];
+// ── Helpers ───────────────────────────────────────────────────
+const displayName = p => {
+    let n = p.first_name;
+    if (p.middle_name) n += ` ${p.middle_name}`;
+    n += ` ${p.last_name}`;
+    if (p.nick_name) n += ` "${p.nick_name}"`;
+    return n;
+};
+
+const shortName = p => `${p.first_name} ${p.last_name}`;
+
+const apiHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-Access-Code': window.accessCode
+});
+
+function groupColor(groupId) {
+    return GROUP_COLORS[(groupId - 1) % GROUP_COLORS.length];
+}
+
+function drawGroupCircle(parent, r, familyGroups) {
+    const groups = (familyGroups && familyGroups.length > 0) ? familyGroups : [0];
+
+    if (groups.length === 1) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', r);
+        circle.setAttribute('fill', groups[0] === 0 ? '#ccc' : groupColor(groups[0]));
+        circle.setAttribute('class', 'node-circle');
+        parent.appendChild(circle);
+        return;
     }
 
-    // Draw a circle split into equal segments, one per family group
-    function drawGroupCircle(parent, r, familyGroups) {
-        const groups = (familyGroups && familyGroups.length > 0) ? familyGroups : [0];
+    const total     = groups.length;
+    const angleStep = (2 * Math.PI) / total;
 
-        if (groups.length === 1) {
-            // Single color — plain circle
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('r', r);
-            circle.setAttribute('fill', groups[0] === 0 ? '#ccc' : groupColor(groups[0]));
-            circle.setAttribute('class', 'node-circle');
-            parent.appendChild(circle);
-            return;
-        }
+    groups.forEach((gid, i) => {
+        const startAngle = i * angleStep - Math.PI / 2;
+        const endAngle   = startAngle + angleStep;
+        const x1 = r * Math.cos(startAngle);
+        const y1 = r * Math.sin(startAngle);
+        const x2 = r * Math.cos(endAngle);
+        const y2 = r * Math.sin(endAngle);
+        const largeArc = angleStep > Math.PI ? 1 : 0;
 
-        // Multiple groups — split into equal pie segments
-        const total   = groups.length;
-        const angleStep = (2 * Math.PI) / total;
-
-        groups.forEach((gid, i) => {
-            const startAngle = i * angleStep - Math.PI / 2;
-            const endAngle   = startAngle + angleStep;
-
-            const x1 = r * Math.cos(startAngle);
-            const y1 = r * Math.sin(startAngle);
-            const x2 = r * Math.cos(endAngle);
-            const y2 = r * Math.sin(endAngle);
-
-            const largeArc = angleStep > Math.PI ? 1 : 0;
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d',
-                `M 0 0 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`
-            );
-            path.setAttribute('fill', gid === 0 ? '#ccc' : groupColor(gid));
-            path.setAttribute('class', 'node-circle');
-            parent.appendChild(path);
-        });
-
-        // Outer ring to keep the circle border clean
-        const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        ring.setAttribute('r', r);
-        ring.setAttribute('fill', 'none');
-        ring.setAttribute('stroke', '#fff');
-        ring.setAttribute('stroke-width', '1.5');
-        ring.setAttribute('pointer-events', 'none');
-        parent.appendChild(ring);
-    }
-    document.addEventListener('DOMContentLoaded', () => {
-        accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
-        document.getElementById('person-form').addEventListener('submit', savePerson);
-        document.getElementById('modal-access-code').addEventListener('keydown', e => {
-            if (e.key === 'Enter') enterTree();
-        });
-
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) { accessCode = stored; loadTree(); }
-        else showModal();
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M 0 0 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`);
+        path.setAttribute('fill', gid === 0 ? '#ccc' : groupColor(gid));
+        path.setAttribute('class', 'node-circle');
+        parent.appendChild(path);
     });
 
-    // ── Auth ──────────────────────────────────────────────────
-    function showModal() {
-        document.getElementById('main-content').classList.add('blurred');
-        document.getElementById('modal-error').classList.add('d-none');
-        document.getElementById('modal-access-code').value = '';
-        accessModal.show();
-    }
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    ring.setAttribute('r', r);
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', '#fff');
+    ring.setAttribute('stroke-width', '1.5');
+    ring.setAttribute('pointer-events', 'none');
+    parent.appendChild(ring);
+}
 
-    async function enterTree() {
-        const code  = document.getElementById('modal-access-code').value.trim();
-        const errEl = document.getElementById('modal-error');
-        if (!code) { errEl.textContent = 'Please enter an access code.'; errEl.classList.remove('d-none'); return; }
+// ── Boot ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    window.accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
+    document.getElementById('person-form').addEventListener('submit', savePerson);
+    document.getElementById('modal-access-code').addEventListener('keydown', e => {
+        if (e.key === 'Enter') enterTree();
+    });
 
-        try {
-            const res  = await fetch(`${API_BASE}/tree/enter`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ access_code: code })
-            });
-            const data = await res.json();
-            if (data.success) {
-                accessCode = code;
-                localStorage.setItem(STORAGE_KEY, code);
-                accessModal.hide();
-                document.getElementById('main-content').classList.remove('blurred');
-                setTreeMeta(data.tree);
-                loadTree();
-            } else {
-                errEl.textContent = 'Invalid access code. Please try again.';
-                errEl.classList.remove('d-none');
-            }
-        } catch { errEl.textContent = 'Could not reach the server.'; errEl.classList.remove('d-none'); }
-    }
-
-    function logout() {
-        accessCode = null;
-        positions  = {};
-        treeData   = null;
-        localStorage.removeItem(STORAGE_KEY);
-        document.getElementById('tree-svg').innerHTML = '';
-        document.getElementById('nav-tree-name').textContent = '';
-        document.getElementById('bar-tree-name').textContent = 'Family Tree';
-        document.getElementById('tree-description').textContent = '';
-        document.getElementById('tree-stats').textContent = '0 people';
-        document.getElementById('person-details').classList.remove('show');
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        window.accessCode = stored;
+        revalidateAndLoad();
+    } else {
         showModal();
     }
+});
 
-    function setTreeMeta(tree) {
-        document.getElementById('nav-tree-name').textContent = tree.name;
-        document.getElementById('bar-tree-name').textContent = tree.name;
-    }
+// ── Auth ──────────────────────────────────────────────────────
+function showModal() {
+    document.getElementById('main-content').classList.add('blurred');
+    document.getElementById('modal-error').classList.add('d-none');
+    document.getElementById('modal-access-code').value = '';
+    window.accessModal.show();
+}
 
-    async function shareAccessCode() {
-        const shareData = {
-            title: document.getElementById('bar-tree-name').textContent,
-            text:  `Join my family tree! Access code: ${accessCode}`,
-            url:   window.location.href
-        };
-
-        try {
-            // Use Web Share API if available (mobile/modern browsers)
-            if (navigator.share) {
-                await navigator.share(shareData);
-            } else {
-                // Fall back to copying to clipboard
-                await navigator.clipboard.writeText(accessCode);
-                alert(`Access code copied to clipboard:\n\n${accessCode}`);
-            }
-        } catch (e) {
-            // Manual fallback if clipboard also fails
-            alert(`Share this access code with your family:\n\n${accessCode}`);
-        }
-    }
-
-    // ── Load tree ─────────────────────────────────────────────
-    async function loadTree() {
-        try {
-            const res  = await fetch(`${API_BASE}/export`, { headers: apiHeaders() });
-            const data = await res.json();
-            if (data.success) {
-                treeData = data.tree;
-                document.getElementById('tree-stats').textContent =
-                    `${treeData.nodes.length} ${treeData.nodes.length === 1 ? 'person' : 'people'}`;
-                populateParentDropdowns();
-                renderTree();
-            }
-        } catch (e) { console.error('loadTree error:', e); }
-    }
-
-    // ── Render ────────────────────────────────────────────────
-    function renderTree() {
-        const svg = document.getElementById('tree-svg');
-        svg.innerHTML = '';
-
-        if (!treeData || treeData.nodes.length === 0) {
-            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            t.setAttribute('x', '400'); t.setAttribute('y', '200');
-            t.setAttribute('text-anchor', 'middle');
-            t.style.fontSize = '16px'; t.style.fill = '#999';
-            t.textContent = 'No people yet. Add someone to get started!';
-            svg.appendChild(t);
-            return;
-        }
-
-        // D3 layout for initial positions only
-        const hier   = buildHierarchy(treeData);
-        const layout = d3.tree().size([820, 460]).separation((a, b) => a.parent === b.parent ? 1 : 1.5);
-        const root   = d3.hierarchy(hier);
-        layout(root);
-
-        // Assign positions — DB first, then in-memory, then layout
-        root.descendants().forEach(d => {
-            const id = d.data.id;
-            if (id === 'root') return;
-            const dbNode = treeData.nodes.find(n => n.id === id);
-            if (dbNode && dbNode.pos_x != null && dbNode.pos_y != null) {
-                positions[id] = { x: dbNode.pos_x, y: dbNode.pos_y };
-            } else if (!positions[id]) {
-                positions[id] = { x: d.x + 40, y: d.y + 40 };
-            }
+async function revalidateAndLoad() {
+    try {
+        const res  = await fetch('/api/tree/enter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ access_code: window.accessCode })
         });
-
-        // Create a pan/zoom group via D3 (on the SVG background only)
-        const svgSel  = d3.select('#tree-svg');
-        const gSel    = svgSel.append('g').attr('id', 'tree-g');
-        const edgeG   = gSel.append('g').attr('id', 'edges');
-        const nodeG   = gSel.append('g').attr('id', 'nodes');
-
-        // Zoom on background
-        const zoomBehavior = d3.zoom()
-            .scaleExtent([0.1, 3])
-            .on('zoom', e => gSel.attr('transform', e.transform));
-
-        svgSel.call(zoomBehavior);
-
-        // After rendering nodes, fit all circles into view
-        requestAnimationFrame(() => fitToView(svgSel, gSel, zoomBehavior));
-
-        // Draw edges
-        function drawEdges() {
-            edgeG.selectAll('*').remove();
-            treeData.edges.forEach(edge => {
-                const s = positions[edge.source];
-                const t = positions[edge.target];
-                if (!s || !t) return;
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
-                line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
-                line.setAttribute('class', edge.relation === 'father' ? 'edge-father' : 'edge-mother');
-                edgeG.node().appendChild(line);
-            });
-        }
-        drawEdges();
-
-        // Draw nodes
-        treeData.nodes.forEach(person => {
-            const pos = positions[person.id];
-            if (!pos) return;
-
-            const grp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            grp.setAttribute('transform', `translate(${pos.x},${pos.y})`);
-            grp.setAttribute('data-id', person.id);
-
-            // Draw grouped color circle
-            drawGroupCircle(grp, 22, person.family_groups);
-
-            // Sex indicator ring — blue for male, pink for female
-            const sexRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            sexRing.setAttribute('r', '22');
-            sexRing.setAttribute('fill', 'none');
-            sexRing.setAttribute('stroke', person.sex === 'M' ? '#4a90e2' : '#e94b8f');
-            sexRing.setAttribute('stroke-width', '3');
-            sexRing.setAttribute('pointer-events', 'none');
-            grp.appendChild(sexRing);
-
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('dy', '35');
-            label.setAttribute('class', 'node-label');
-            label.textContent = shortName(person);
-            grp.appendChild(label);
-
-            if (person.birthday) {
-                const yr = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                yr.setAttribute('dy', '48');
-                yr.setAttribute('class', 'node-year');
-                yr.textContent = `(${person.birthday.split('-')[0]})`;
-                grp.appendChild(yr);
-            }
-
-            nodeG.node().appendChild(grp);
-
-            // ── Native drag ──────────────────────────────────
-            let dragStartX, dragStartY, origX, origY, moved = false;
-
-            grp.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                moved      = false;
-                dragStartX = e.clientX;
-                dragStartY = e.clientY;
-                origX      = positions[person.id].x;
-                origY      = positions[person.id].y;
-
-                function onMouseMove(ev) {
-                    const gEl     = document.getElementById('tree-g');
-                    const matrix  = gEl.getCTM(); // actual screen transform
-                    const scale   = matrix ? matrix.a : 1;
-                    const dx      = (ev.clientX - dragStartX) / scale;
-                    const dy      = (ev.clientY - dragStartY) / scale;
-
-                    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
-                    if (!moved) return;
-
-                    positions[person.id].x = origX + dx;
-                    positions[person.id].y = origY + dy;
-
-                    grp.setAttribute('transform',
-                        `translate(${positions[person.id].x},${positions[person.id].y})`);
-                    drawEdges();
-                }
-
-                function onMouseUp() {
-                    document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
-
-                    if (moved) {
-                        const finalPos = { ...positions[person.id] };
-                        console.log('[DEBUG] Drag end:', person.id, finalPos);
-                        clearTimeout(positionSaveTimer);
-                        positionSaveTimer = setTimeout(() => savePositionToDB(person.id, finalPos), 300);
-                    } else {
-                        showPersonDetails(person.id);
-                    }
-                }
-
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
-            });
-        });
-    }
-
-    // ── Generation view ───────────────────────────────────────
-
-    async function onGenerationToggle(checked) {
-        generationMode = checked;
-        setFormDisabled(checked);
-
-        if (checked) {
-            await applyGenerationLayout();
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('main-content').classList.remove('blurred');
+            setTreeMeta(data.tree);
+            loadTree();
         } else {
-            positions = {};
-            await loadTree();
-            document.getElementById('generation-toggle').checked = false;
-            generationMode = false;
+            localStorage.removeItem(STORAGE_KEY);
+            window.accessCode = null;
+            showModal();
         }
+    } catch (e) {
+        console.error('Revalidation failed:', e);
+        showModal();
     }
+}
 
-    function setFormDisabled(disabled) {
-        const form = document.getElementById('person-form');
-        // Disable/enable all inputs, selects, and buttons inside the form
-        form.querySelectorAll('input, select, button, textarea').forEach(el => {
-            el.disabled = disabled;
+async function enterTree() {
+    const code  = document.getElementById('modal-access-code').value.trim();
+    const errEl = document.getElementById('modal-error');
+    if (!code) {
+        errEl.textContent = 'Please enter an access code.';
+        errEl.classList.remove('d-none');
+        return;
+    }
+    try {
+        const res  = await fetch('/api/tree/enter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ access_code: code })
         });
-        // Visual cue on the form card header
-        const header = document.getElementById('form-title');
-        if (disabled) {
-            header.classList.replace('bg-primary', 'bg-secondary');
+        const data = await res.json();
+        if (data.success) {
+            window.accessCode = code;
+            localStorage.setItem(STORAGE_KEY, code);
+            window.accessModal.hide();
+            document.getElementById('main-content').classList.remove('blurred');
+            setTreeMeta(data.tree);
+            loadTree();
         } else {
-            header.classList.replace('bg-secondary', 'bg-primary');
+            errEl.textContent = 'Invalid access code. Please try again.';
+            errEl.classList.remove('d-none');
         }
+    } catch (e) {
+        document.getElementById('modal-error').textContent = 'Could not reach the server.';
+        document.getElementById('modal-error').classList.remove('d-none');
     }
+}
 
-    async function applyGenerationLayout() {
-        try {
-            const res  = await fetch(`${API_BASE}/people/generations`, { headers: apiHeaders() });
-            const data = await res.json();
-            if (!data.success) return;
+function logout() {
+    window.accessCode     = null;
+    window.positions      = {};
+    window.treeData       = null;
+    window.generationMode = false;
+    localStorage.removeItem(STORAGE_KEY);
 
-            const svgEl    = document.getElementById('tree-svg');
-            const svgW     = svgEl.clientWidth  || 900;
-            const svgH     = svgEl.clientHeight || 520;
-            const Y_BAND   = 120;  // px between generations
-            const TOP_PAD  = 60;   // top padding
+    const svg = document.getElementById('tree-svg');
+    if (svg) svg.innerHTML = '';
 
-            // Group people by generation
-            const genGroups = {};
-            data.people.forEach(p => {
-                const g = p.generation;
-                if (!genGroups[g]) genGroups[g] = [];
-                genGroups[g].push(p.id);
-            });
+    const navName = document.getElementById('nav-tree-name');
+    if (navName) navName.textContent = '';
 
-            const maxGen = data.max_generation;
+    const barName = document.getElementById('bar-tree-name');
+    if (barName) barName.textContent = 'Family Tree';
 
-            // Assign new positions based on generation
-            Object.entries(genGroups).forEach(([gen, ids]) => {
-                const y      = TOP_PAD + parseInt(gen) * Y_BAND;
-                const count  = ids.length;
-                const xStep  = svgW / (count + 1);
+    const stats = document.getElementById('tree-stats');
+    if (stats) stats.textContent = '0 people';
 
-                ids.forEach((id, i) => {
-                    const x = xStep * (i + 1);
-                    positions[id] = { x, y };
-                });
-            });
+    const details = document.getElementById('person-details');
+    if (details) details.classList.remove('show');
 
-            // Re-render with new positions (no DB write)
+    const toggle = document.getElementById('generation-toggle');
+    if (toggle) toggle.checked = false;
+
+    showModal();
+}
+
+function setTreeMeta(tree) {
+    document.getElementById('nav-tree-name').textContent = tree.name;
+    document.getElementById('bar-tree-name').textContent = tree.name;
+}
+
+// ── Share ──────────────────────────────────────────────────────
+async function shareAccessCode() {
+    const shareData = {
+        title: document.getElementById('bar-tree-name').textContent,
+        text:  `Join my family tree! Access code: ${window.accessCode}`,
+        url:   window.location.href
+    };
+    try {
+        if (navigator.share) {
+            await navigator.share(shareData);
+        } else {
+            await navigator.clipboard.writeText(window.accessCode);
+            alert(`Access code copied to clipboard:\n\n${window.accessCode}`);
+        }
+    } catch (e) {
+        alert(`Share this access code with your family:\n\n${window.accessCode}`);
+    }
+}
+
+// ── Load tree ─────────────────────────────────────────────────
+async function loadTree() {
+    try {
+        const res  = await fetch('/api/export', { headers: apiHeaders() });
+        const data = await res.json();
+        if (data.success) {
+            window.treeData = data.tree;
+            document.getElementById('tree-stats').textContent =
+                `${window.treeData.nodes.length} ${window.treeData.nodes.length === 1 ? 'person' : 'people'}`;
+            populateParentDropdowns();
             renderTree();
-
-        } catch (e) {
-            console.error('applyGenerationLayout error:', e);
         }
+    } catch (e) {
+        console.error('loadTree error:', e);
+    }
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderTree() {
+    const svgEl = document.getElementById('tree-svg');
+    svgEl.innerHTML = '';
+
+    if (!window.treeData || window.treeData.nodes.length === 0) {
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', '400');
+        t.setAttribute('y', '200');
+        t.setAttribute('text-anchor', 'middle');
+        t.style.fontSize = '16px';
+        t.style.fill = '#999';
+        t.textContent = 'No people yet. Add someone to get started!';
+        svgEl.appendChild(t);
+        return;
     }
 
-    // ── Fit to view ───────────────────────────────────────────
+    const hier   = buildHierarchy(window.treeData);
+    const layout = d3.tree().size([820, 460]).separation((a, b) => a.parent === b.parent ? 1 : 1.5);
+    const root   = d3.hierarchy(hier);
+    layout(root);
 
-    function fitToView(svgSel, gSel, zoomBehavior) {
-        const svgEl = svgSel.node();
-        const gEl   = gSel.node();
-
-        const svgW  = svgEl.clientWidth  || 900;
-        const svgH  = svgEl.clientHeight || 600;
-
-        // Get the bounding box of all rendered nodes
-        const bbox  = gEl.getBBox();
-        if (!bbox || bbox.width === 0 || bbox.height === 0) return;
-
-        const pad   = 60; // padding around the content
-        const scale = Math.min(
-            (svgW - pad * 2) / bbox.width,
-            (svgH - pad * 2) / bbox.height,
-            1.5  // don't zoom in too much if tree is small
-        );
-
-        const tx = (svgW - bbox.width  * scale) / 2 - bbox.x * scale;
-        const ty = (svgH - bbox.height * scale) / 2 - bbox.y * scale;
-
-        svgSel.transition().duration(600).call(
-            zoomBehavior.transform,
-            d3.zoomIdentity.translate(tx, ty).scale(scale)
-        );
-    }
-
-    // ── Save position ─────────────────────────────────────────
-    async function savePositionToDB(personId, pos) {
-        // Never write positions to DB while in generation view mode
-        if (generationMode) return;
-        console.log('[DEBUG] savePositionToDB called:', personId, pos);
-        try {
-            const res  = await fetch(`${API_BASE}/person/${personId}/position`, {
-                method: 'PUT',
-                headers: apiHeaders(),
-                body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y })
-            });
-            const data = await res.json();
-            console.log('[DEBUG] Position save result:', data);
-        } catch (e) {
-            console.warn('[DEBUG] Failed to save position:', e);
+    // Assign positions — DB first, then in-memory, then layout
+    root.descendants().forEach(d => {
+        const id = d.data.id;
+        if (id === 'root') return;
+        const dbNode = window.treeData.nodes.find(n => n.id === id);
+        if (dbNode && dbNode.pos_x != null && dbNode.pos_y != null) {
+            window.positions[id] = { x: dbNode.pos_x, y: dbNode.pos_y };
+        } else if (!window.positions[id]) {
+            window.positions[id] = { x: d.x + 40, y: d.y + 40 };
         }
-    }
+    });
 
-    // ── Hierarchy builder ─────────────────────────────────────
-    function buildHierarchy(data) {
-        const nodeMap = new Map();
-        data.nodes.forEach(n => nodeMap.set(n.id, { ...n, children: [] }));
+    const svgSel = d3.select('#tree-svg');
+    const gSel   = svgSel.append('g').attr('id', 'tree-g');
+    const edgeG  = gSel.append('g').attr('id', 'edges');
+    const nodeG  = gSel.append('g').attr('id', 'nodes');
 
-        const childToParents = new Map();
-        data.edges.forEach(e => {
-            if (!childToParents.has(e.target)) childToParents.set(e.target, { father: null, mother: null });
-            if (e.relation === 'father') childToParents.get(e.target).father = e.source;
-            else childToParents.get(e.target).mother = e.source;
-        });
+    const zoomBehavior = d3.zoom()
+        .scaleExtent([0.1, 3])
+        .on('zoom', e => gSel.attr('transform', e.transform));
 
-        childToParents.forEach((parents, childId) => {
-            const primaryId = parents.father || parents.mother;
-            if (primaryId) {
-                const parent = nodeMap.get(primaryId);
-                const child  = nodeMap.get(childId);
-                if (parent && child && !parent.children.includes(child)) parent.children.push(child);
-            }
-        });
+    svgSel.call(zoomBehavior);
 
-        const childIds = new Set(data.edges.map(e => e.target));
-        const roots    = data.nodes.filter(n => !childIds.has(n.id));
-
-        if (roots.length === 0) return nodeMap.get(data.nodes[0].id);
-        if (roots.length === 1) return nodeMap.get(roots[0].id);
-        return { id: 'root', name: 'root', children: roots.map(r => nodeMap.get(r.id)) };
-    }
-
-    // ── Dropdowns ─────────────────────────────────────────────
-    function populateParentDropdowns() {
-        if (!treeData?.nodes) return;
-        const fSel = document.getElementById('father_id');
-        const mSel = document.getElementById('mother_id');
-        fSel.innerHTML = '<option value="">None</option>';
-        mSel.innerHTML = '<option value="">None</option>';
-        treeData.nodes.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id; opt.textContent = shortName(p);
-            if (p.sex === 'M') fSel.appendChild(opt.cloneNode(true));
-            if (p.sex === 'F') mSel.appendChild(opt.cloneNode(true));
+    function drawEdges() {
+        edgeG.selectAll('*').remove();
+        window.treeData.edges.forEach(edge => {
+            const s = window.positions[edge.source];
+            const t = window.positions[edge.target];
+            if (!s || !t) return;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
+            line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+            line.setAttribute('class', edge.relation === 'father' ? 'edge-father' : 'edge-mother');
+            edgeG.node().appendChild(line);
         });
     }
+    drawEdges();
 
-    // ── Person CRUD ───────────────────────────────────────────
-    async function savePerson(e) {
-        e.preventDefault();
-        const editId = document.getElementById('edit-person-id').value;
-        const fgRaw  = document.getElementById('family_groups').value.trim();
-        const familyGroups = fgRaw
-            ? fgRaw.split(',').map(g => parseInt(g.trim())).filter(g => !isNaN(g))
-            : undefined;
+    window.treeData.nodes.forEach(person => {
+        const pos = window.positions[person.id];
+        if (!pos) return;
 
-        const payload = {
-            first_name:       document.getElementById('first_name').value,
-            last_name:        document.getElementById('last_name').value,
-            middle_name:      document.getElementById('middle_name').value || undefined,
-            nick_name:        document.getElementById('nick_name').value || undefined,
-            sex:              document.getElementById('sex').value,
-            father_id:        document.getElementById('father_id').value || undefined,
-            mother_id:        document.getElementById('mother_id').value || undefined,
-            family_groups:    familyGroups,
-            birthday:         document.getElementById('birthday').value || undefined,
-            place_of_birth:   document.getElementById('place_of_birth').value || undefined,
-            current_location: document.getElementById('current_location').value || undefined,
-        };
+        const grp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        grp.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+        grp.setAttribute('data-id', person.id);
 
-        try {
-            const url    = editId ? `${API_BASE}/person/${editId}` : `${API_BASE}/person`;
-            const method = editId ? 'PUT' : 'POST';
-            const res    = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(payload) });
-            const result = await res.json();
-            if (result.success) { cancelEdit(); loadTree(); }
-            else alert('Error: ' + result.error);
-        } catch { alert('Failed to save person.'); }
-    }
+        drawGroupCircle(grp, 22, person.family_groups);
 
-    async function showPersonDetails(personId) {
-        if (!personId || personId === 'root') return;
-        try {
-            const [pRes, parRes] = await Promise.all([
-                fetch(`${API_BASE}/person/${personId}`,         { headers: apiHeaders() }),
-                fetch(`${API_BASE}/person/${personId}/parents`, { headers: apiHeaders() })
-            ]);
-            const pData   = await pRes.json();
-            const parData = await parRes.json();
-            if (!pData.success) return;
+        const sexRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        sexRing.setAttribute('r', '22');
+        sexRing.setAttribute('fill', 'none');
+        sexRing.setAttribute('stroke', person.sex === 'M' ? '#4a90e2' : '#e94b8f');
+        sexRing.setAttribute('stroke-width', '3');
+        sexRing.setAttribute('pointer-events', 'none');
+        grp.appendChild(sexRing);
 
-            const p        = pData.person;
-            const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
-            const sexText  = p.sex === 'M' ? 'Male' : 'Female';
-            const groups   = (p.family_groups || []).map(g =>
-                `<span class="badge badge-group">Group ${g}</span>`).join(' ');
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('dy', '35');
+        label.setAttribute('class', 'node-label');
+        label.textContent = shortName(person);
+        grp.appendChild(label);
 
-            let html = `
-                <div class="row">
-                    <div class="col">
-                        <h6 class="mb-1">${displayName(p)}</h6>
-                        <p class="mb-1"><span class="badge ${sexBadge}">${sexText}</span> ${groups}</p>
-                        <p class="mb-1 text-muted" style="font-size:0.75rem">${personId}</p>
-                    </div>
-                    <div class="col-auto">
-                        <button class="btn btn-primary btn-sm" onclick="editPerson('${personId}')">
-                            <i class="bi bi-pencil me-1"></i>Edit
-                        </button>
-                    </div>
-                </div>
-                <hr class="my-2">
-                <div class="row g-2">`;
+        if (person.birthday) {
+            const yr = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yr.setAttribute('dy', '48');
+            yr.setAttribute('class', 'node-year');
+            yr.textContent = `(${person.birthday.split('-')[0]})`;
+            grp.appendChild(yr);
+        }
 
-            if (p.nick_name)        html += `<div class="col-sm-4"><small class="text-muted">Nickname</small><div>${p.nick_name}</div></div>`;
-            if (p.birthday)         html += `<div class="col-sm-4"><small class="text-muted">Birthday</small><div>${p.birthday}</div></div>`;
-            if (p.place_of_birth)   html += `<div class="col-sm-4"><small class="text-muted">Place of Birth</small><div>${p.place_of_birth}</div></div>`;
-            if (p.current_location) html += `<div class="col-sm-4"><small class="text-muted">Current Location</small><div>${p.current_location}</div></div>`;
+        nodeG.node().appendChild(grp);
 
-            if (parData.success) {
-                if (parData.parents.father) html += `<div class="col-sm-4"><small class="text-muted">Father</small><div>${displayName(parData.parents.father)}</div></div>`;
-                if (parData.parents.mother) html += `<div class="col-sm-4"><small class="text-muted">Mother</small><div>${displayName(parData.parents.mother)}</div></div>`;
-            }
-            html += '</div>';
+        // Native drag
+        let dragStartX, dragStartY, origX, origY, moved = false;
 
-            document.getElementById('person-details-content').innerHTML = html;
-            document.getElementById('person-details').classList.add('show');
-        } catch (e) { console.error('showPersonDetails error:', e); }
-    }
+        grp.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            moved      = false;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            origX      = window.positions[person.id].x;
+            origY      = window.positions[person.id].y;
 
-    async function editPerson(personId) {
-        try {
-            const [pRes, parRes] = await Promise.all([
-                fetch(`${API_BASE}/person/${personId}`,         { headers: apiHeaders() }),
-                fetch(`${API_BASE}/person/${personId}/parents`, { headers: apiHeaders() })
-            ]);
-            const pData   = await pRes.json();
-            const parData = await parRes.json();
-            if (!pData.success) return;
-
-            const p = pData.person;
-            document.getElementById('edit-person-id').value   = personId;
-            document.getElementById('first_name').value       = p.first_name || '';
-            document.getElementById('middle_name').value      = p.middle_name || '';
-            document.getElementById('last_name').value        = p.last_name || '';
-            document.getElementById('nick_name').value        = p.nick_name || '';
-            document.getElementById('sex').value              = p.sex === 'M' ? 'male' : 'female';
-            document.getElementById('birthday').value         = p.birthday || '';
-            document.getElementById('place_of_birth').value   = p.place_of_birth || '';
-            document.getElementById('current_location').value = p.current_location || '';
-            document.getElementById('family_groups').value    = (p.family_groups || []).join(', ');
-
-            if (parData.success) {
-                document.getElementById('father_id').value = parData.parents.father?.id || '';
-                document.getElementById('mother_id').value = parData.parents.mother?.id || '';
+            function onMouseMove(ev) {
+                const gEl   = document.getElementById('tree-g');
+                const matrix = gEl.getCTM();
+                const scale  = matrix ? matrix.a : 1;
+                const dx     = (ev.clientX - dragStartX) / scale;
+                const dy     = (ev.clientY - dragStartY) / scale;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+                if (!moved) return;
+                window.positions[person.id].x = origX + dx;
+                window.positions[person.id].y = origY + dy;
+                grp.setAttribute('transform',
+                    `translate(${window.positions[person.id].x},${window.positions[person.id].y})`);
+                drawEdges();
             }
 
-            document.getElementById('form-title').innerHTML    = '<i class="bi bi-pencil me-1"></i>Edit Person';
-            document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-check-circle me-1"></i>Update Person';
-            document.getElementById('cancel-btn').style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch { alert('Failed to load person for editing.'); }
-    }
-
-    function cancelEdit() {
-        document.getElementById('edit-person-id').value = '';
-        document.getElementById('person-form').reset();
-        document.getElementById('form-title').innerHTML    = '<i class="bi bi-person-plus me-1"></i>Add New Person';
-        document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-plus-circle me-1"></i>Add Person';
-        document.getElementById('cancel-btn').style.display = 'none';
-    }
-
-    // ── Actions ───────────────────────────────────────────────
-    async function exportTree() {
-        try {
-            const res  = await fetch(`${API_BASE}/export`, { headers: apiHeaders() });
-            const data = await res.json();
-            if (data.success) {
-                const blob = new Blob([JSON.stringify(data.tree, null, 2)], { type: 'application/json' });
-                Object.assign(document.createElement('a'),
-                    { href: URL.createObjectURL(blob), download: 'family_tree.json' }).click();
-            }
-        } catch { alert('Failed to export tree.'); }
-    }
-
-    async function showStats() {
-        try {
-            const res  = await fetch(`${API_BASE}/stats`, { headers: apiHeaders() });
-            const data = await res.json();
-            if (data.success) {
-                const s = data.stats;
-                alert(`Family Tree Statistics\n\nPeople: ${s.total_people}\nRelationships: ${s.total_relationships}\nFamily Groups: ${s.total_groups}`);
-            }
-        } catch { alert('Failed to fetch stats.'); }
-    }
-
-    async function showGroups() {
-        try {
-            const res  = await fetch(`${API_BASE}/groups`, { headers: apiHeaders() });
-            const data = await res.json();
-            if (data.success) {
-                let msg = `Family Groups (${data.count} total)\n\n`;
-                for (const [id, members] of Object.entries(data.groups)) {
-                    msg += `Group ${id}: ${members.length} member(s)\n`;
-                    members.forEach(m => msg += `  - ${shortName(m)} (${m.sex})\n`);
-                    msg += '\n';
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                if (moved) {
+                    const finalPos = { x: window.positions[person.id].x, y: window.positions[person.id].y };
+                    clearTimeout(window.positionSaveTimer);
+                    window.positionSaveTimer = setTimeout(() => savePositionToDB(person.id, finalPos), 300);
+                } else {
+                    showPersonDetails(person.id);
                 }
-                alert(msg);
             }
-        } catch { alert('Failed to fetch groups.'); }
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+
+    requestAnimationFrame(() => fitToView(svgSel, gSel, zoomBehavior));
+}
+
+// ── Fit to view ───────────────────────────────────────────────
+function fitToView(svgSel, gSel, zoomBehavior) {
+    const svgEl = svgSel.node();
+    const gEl   = gSel.node();
+    const svgW  = svgEl.clientWidth  || 900;
+    const svgH  = svgEl.clientHeight || 600;
+    const bbox  = gEl.getBBox();
+    if (!bbox || bbox.width === 0 || bbox.height === 0) return;
+    const pad   = 60;
+    const scale = Math.min(
+        (svgW - pad * 2) / bbox.width,
+        (svgH - pad * 2) / bbox.height,
+        1.5
+    );
+    const tx = (svgW - bbox.width  * scale) / 2 - bbox.x * scale;
+    const ty = (svgH - bbox.height * scale) / 2 - bbox.y * scale;
+    svgSel.transition().duration(600).call(
+        zoomBehavior.transform,
+        d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
+}
+
+// ── Save position ─────────────────────────────────────────────
+async function savePositionToDB(personId, pos) {
+    if (window.generationMode) return;
+    const url = `/api/person/${personId}/position`;
+    console.log('[DEBUG] savePositionToDB:', url, pos);
+    try {
+        const res  = await fetch(url, {
+            method: 'PUT',
+            headers: apiHeaders(),
+            body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y })
+        });
+        const text = await res.text();
+        console.log('[DEBUG] Position save result:', res.status, text);
+    } catch (e) {
+        console.warn('[DEBUG] Failed to save position:', e);
     }
+}
+
+// ── Generation view ───────────────────────────────────────────
+async function onGenerationToggle(checked) {
+    window.generationMode = checked;
+    setFormDisabled(checked);
+    if (checked) {
+        await applyGenerationLayout();
+    } else {
+        window.positions = {};
+        await loadTree();
+        document.getElementById('generation-toggle').checked = false;
+        window.generationMode = false;
+    }
+}
+
+function setFormDisabled(disabled) {
+    const form = document.getElementById('person-form');
+    form.querySelectorAll('input, select, button, textarea').forEach(el => {
+        el.disabled = disabled;
+    });
+    const header = document.getElementById('form-title').closest('.card-header');
+    if (disabled) {
+        header.classList.replace('bg-primary', 'bg-secondary');
+    } else {
+        header.classList.replace('bg-secondary', 'bg-primary');
+    }
+}
+
+async function applyGenerationLayout() {
+    try {
+        const res  = await fetch('/api/people/generations', { headers: apiHeaders() });
+        const data = await res.json();
+        if (!data.success) return;
+
+        const svgEl  = document.getElementById('tree-svg');
+        const svgW   = svgEl.clientWidth  || 900;
+        const Y_BAND = 120;
+        const TOP_PAD = 60;
+
+        const genGroups = {};
+        data.people.forEach(p => {
+            const g = p.generation;
+            if (!genGroups[g]) genGroups[g] = [];
+            genGroups[g].push(p.id);
+        });
+
+        Object.entries(genGroups).forEach(([gen, ids]) => {
+            const y     = TOP_PAD + parseInt(gen) * Y_BAND;
+            const count = ids.length;
+            const xStep = svgW / (count + 1);
+            ids.forEach((id, i) => {
+                window.positions[id] = { x: xStep * (i + 1), y };
+            });
+        });
+
+        renderTree();
+    } catch (e) {
+        console.error('applyGenerationLayout error:', e);
+    }
+}
+
+// ── Hierarchy builder ─────────────────────────────────────────
+function buildHierarchy(data) {
+    const nodeMap = new Map();
+    data.nodes.forEach(n => nodeMap.set(n.id, { ...n, children: [] }));
+
+    const childToParents = new Map();
+    data.edges.forEach(e => {
+        if (!childToParents.has(e.target)) childToParents.set(e.target, { father: null, mother: null });
+        if (e.relation === 'father') childToParents.get(e.target).father = e.source;
+        else childToParents.get(e.target).mother = e.source;
+    });
+
+    childToParents.forEach((parents, childId) => {
+        const primaryId = parents.father || parents.mother;
+        if (primaryId) {
+            const parent = nodeMap.get(primaryId);
+            const child  = nodeMap.get(childId);
+            if (parent && child && !parent.children.includes(child)) parent.children.push(child);
+        }
+    });
+
+    const childIds = new Set(data.edges.map(e => e.target));
+    const roots    = data.nodes.filter(n => !childIds.has(n.id));
+
+    if (roots.length === 0) return nodeMap.get(data.nodes[0].id);
+    if (roots.length === 1) return nodeMap.get(roots[0].id);
+    return { id: 'root', name: 'root', children: roots.map(r => nodeMap.get(r.id)) };
+}
+
+// ── Dropdowns ─────────────────────────────────────────────────
+function populateParentDropdowns() {
+    if (!window.treeData || !window.treeData.nodes) return;
+    const fSel = document.getElementById('father_id');
+    const mSel = document.getElementById('mother_id');
+    fSel.innerHTML = '<option value="">None</option>';
+    mSel.innerHTML = '<option value="">None</option>';
+    window.treeData.nodes.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = shortName(p);
+        if (p.sex === 'M') fSel.appendChild(opt.cloneNode(true));
+        if (p.sex === 'F') mSel.appendChild(opt.cloneNode(true));
+    });
+}
+
+// ── Person CRUD ───────────────────────────────────────────────
+async function savePerson(e) {
+    e.preventDefault();
+    const editId   = document.getElementById('edit-person-id').value;
+    const fgRaw    = document.getElementById('family_groups').value.trim();
+    const familyGroups = fgRaw
+        ? fgRaw.split(',').map(g => parseInt(g.trim())).filter(g => !isNaN(g))
+        : undefined;
+
+    const payload = {
+        first_name:       document.getElementById('first_name').value,
+        last_name:        document.getElementById('last_name').value,
+        middle_name:      document.getElementById('middle_name').value || undefined,
+        nick_name:        document.getElementById('nick_name').value || undefined,
+        sex:              document.getElementById('sex').value,
+        father_id:        document.getElementById('father_id').value || undefined,
+        mother_id:        document.getElementById('mother_id').value || undefined,
+        family_groups:    familyGroups,
+        birthday:         document.getElementById('birthday').value || undefined,
+        place_of_birth:   document.getElementById('place_of_birth').value || undefined,
+        current_location: document.getElementById('current_location').value || undefined,
+    };
+
+    try {
+        const url    = editId ? `/api/person/${editId}` : '/api/person';
+        const method = editId ? 'PUT' : 'POST';
+        const res    = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(payload) });
+        const result = await res.json();
+        if (result.success) {
+            cancelEdit();
+            loadTree();
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (err) {
+        alert('Failed to save person.');
+    }
+}
+
+async function showPersonDetails(personId) {
+    if (!personId || personId === 'root') return;
+    try {
+        const [pRes, parRes] = await Promise.all([
+            fetch(`/api/person/${personId}`,         { headers: apiHeaders() }),
+            fetch(`/api/person/${personId}/parents`, { headers: apiHeaders() })
+        ]);
+        const pData   = await pRes.json();
+        const parData = await parRes.json();
+        if (!pData.success) return;
+
+        const p        = pData.person;
+        const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
+        const sexText  = p.sex === 'M' ? 'Male' : 'Female';
+        const groups   = (p.family_groups || []).map(g =>
+            `<span class="badge badge-group">Group ${g}</span>`).join(' ');
+
+        let html = `
+            <div class="row">
+                <div class="col">
+                    <h6 class="mb-1">${displayName(p)}</h6>
+                    <p class="mb-1"><span class="badge ${sexBadge}">${sexText}</span> ${groups}</p>
+                    <p class="mb-1 text-muted" style="font-size:0.75rem">${personId}</p>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary btn-sm" onclick="editPerson('${personId}')">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </button>
+                </div>
+            </div>
+            <hr class="my-2">
+            <div class="row g-2">`;
+
+        if (p.nick_name)        html += `<div class="col-sm-4"><small class="text-muted">Nickname</small><div>${p.nick_name}</div></div>`;
+        if (p.birthday)         html += `<div class="col-sm-4"><small class="text-muted">Birthday</small><div>${p.birthday}</div></div>`;
+        if (p.place_of_birth)   html += `<div class="col-sm-4"><small class="text-muted">Place of Birth</small><div>${p.place_of_birth}</div></div>`;
+        if (p.current_location) html += `<div class="col-sm-4"><small class="text-muted">Current Location</small><div>${p.current_location}</div></div>`;
+
+        if (parData.success) {
+            if (parData.parents.father) html += `<div class="col-sm-4"><small class="text-muted">Father</small><div>${displayName(parData.parents.father)}</div></div>`;
+            if (parData.parents.mother) html += `<div class="col-sm-4"><small class="text-muted">Mother</small><div>${displayName(parData.parents.mother)}</div></div>`;
+        }
+        html += '</div>';
+
+        document.getElementById('person-details-content').innerHTML = html;
+        document.getElementById('person-details').classList.add('show');
+    } catch (e) {
+        console.error('showPersonDetails error:', e);
+    }
+}
+
+async function editPerson(personId) {
+    try {
+        const [pRes, parRes] = await Promise.all([
+            fetch(`/api/person/${personId}`,         { headers: apiHeaders() }),
+            fetch(`/api/person/${personId}/parents`, { headers: apiHeaders() })
+        ]);
+        const pData   = await pRes.json();
+        const parData = await parRes.json();
+        if (!pData.success) return;
+
+        const p = pData.person;
+        document.getElementById('edit-person-id').value   = personId;
+        document.getElementById('first_name').value       = p.first_name || '';
+        document.getElementById('middle_name').value      = p.middle_name || '';
+        document.getElementById('last_name').value        = p.last_name || '';
+        document.getElementById('nick_name').value        = p.nick_name || '';
+        document.getElementById('sex').value              = p.sex === 'M' ? 'male' : 'female';
+        document.getElementById('birthday').value         = p.birthday || '';
+        document.getElementById('place_of_birth').value   = p.place_of_birth || '';
+        document.getElementById('current_location').value = p.current_location || '';
+        document.getElementById('family_groups').value    = (p.family_groups || []).join(', ');
+
+        if (parData.success) {
+            document.getElementById('father_id').value = parData.parents.father ? parData.parents.father.id : '';
+            document.getElementById('mother_id').value = parData.parents.mother ? parData.parents.mother.id : '';
+        }
+
+        document.getElementById('form-title').innerHTML    = '<i class="bi bi-pencil me-1"></i>Edit Person';
+        document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-check-circle me-1"></i>Update Person';
+        document.getElementById('cancel-btn').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+        alert('Failed to load person for editing.');
+    }
+}
+
+function cancelEdit() {
+    document.getElementById('edit-person-id').value = '';
+    document.getElementById('person-form').reset();
+    document.getElementById('form-title').innerHTML    = '<i class="bi bi-person-plus me-1"></i>Add New Person';
+    document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-plus-circle me-1"></i>Add Person';
+    document.getElementById('cancel-btn').style.display = 'none';
+}
+
+// ── Actions ───────────────────────────────────────────────────
+async function exportTree() {
+    try {
+        const res  = await fetch('/api/export', { headers: apiHeaders() });
+        const data = await res.json();
+        if (data.success) {
+            const blob = new Blob([JSON.stringify(data.tree, null, 2)], { type: 'application/json' });
+            Object.assign(document.createElement('a'),
+                { href: URL.createObjectURL(blob), download: 'family_tree.json' }).click();
+        }
+    } catch (e) {
+        alert('Failed to export tree.');
+    }
+}
+
+async function showStats() {
+    try {
+        const res  = await fetch('/api/stats', { headers: apiHeaders() });
+        const data = await res.json();
+        if (data.success) {
+            const s = data.stats;
+            alert(`Family Tree Statistics\n\nPeople: ${s.total_people}\nRelationships: ${s.total_relationships}\nFamily Groups: ${s.total_groups}`);
+        }
+    } catch (e) {
+        alert('Failed to fetch stats.');
+    }
+}
+
+async function showGroups() {
+    try {
+        const res  = await fetch('/api/groups', { headers: apiHeaders() });
+        const data = await res.json();
+        if (data.success) {
+            let msg = `Family Groups (${data.count} total)\n\n`;
+            for (const [id, members] of Object.entries(data.groups)) {
+                msg += `Group ${id}: ${members.length} member(s)\n`;
+                members.forEach(m => msg += `  - ${shortName(m)} (${m.sex})\n`);
+                msg += '\n';
+            }
+            alert(msg);
+        }
+    } catch (e) {
+        alert('Failed to fetch groups.');
+    }
+}
+
 </script>
 </body>
 </html>
