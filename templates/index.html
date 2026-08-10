@@ -460,9 +460,14 @@
         const nodeG   = gSel.append('g').attr('id', 'nodes');
 
         // Zoom on background
-        svgSel.call(
-            d3.zoom().scaleExtent([0.1, 3]).on('zoom', e => gSel.attr('transform', e.transform))
-        );
+        const zoomBehavior = d3.zoom()
+            .scaleExtent([0.1, 3])
+            .on('zoom', e => gSel.attr('transform', e.transform));
+
+        svgSel.call(zoomBehavior);
+
+        // After rendering nodes, fit all circles into view
+        requestAnimationFrame(() => fitToView(svgSel, gSel, zoomBehavior));
 
         // Draw edges
         function drawEdges() {
@@ -638,6 +643,35 @@
         } catch (e) {
             console.error('applyGenerationLayout error:', e);
         }
+    }
+
+    // ── Fit to view ───────────────────────────────────────────
+
+    function fitToView(svgSel, gSel, zoomBehavior) {
+        const svgEl = svgSel.node();
+        const gEl   = gSel.node();
+
+        const svgW  = svgEl.clientWidth  || 900;
+        const svgH  = svgEl.clientHeight || 600;
+
+        // Get the bounding box of all rendered nodes
+        const bbox  = gEl.getBBox();
+        if (!bbox || bbox.width === 0 || bbox.height === 0) return;
+
+        const pad   = 60; // padding around the content
+        const scale = Math.min(
+            (svgW - pad * 2) / bbox.width,
+            (svgH - pad * 2) / bbox.height,
+            1.5  // don't zoom in too much if tree is small
+        );
+
+        const tx = (svgW - bbox.width  * scale) / 2 - bbox.x * scale;
+        const ty = (svgH - bbox.height * scale) / 2 - bbox.y * scale;
+
+        svgSel.transition().duration(600).call(
+            zoomBehavior.transform,
+            d3.zoomIdentity.translate(tx, ty).scale(scale)
+        );
     }
 
     // ── Save position ─────────────────────────────────────────

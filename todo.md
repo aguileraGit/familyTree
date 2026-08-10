@@ -8,7 +8,6 @@
 - Stop page from resetting zoom level when new person is added
 - When creating a new person, if father is set then assign to that group. Maybe a prompt for a new immiedate family?
 - Error code when adding new person with Generations -> Doesn't save circle location
-- Make 'Add new person skinner' and actual map wider and longer
 - Enter the first time, zoom to see all. 
 
 
