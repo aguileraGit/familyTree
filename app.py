@@ -182,20 +182,11 @@ def add_person(tree_uuid=None):
         # Determine family groups
         family_groups = data.get('family_groups')
         if not family_groups:
-            inherited = set()
-            if father_id and graph.has_node(father_id):
-                inherited.update(graph.nodes[father_id].get('family_groups', []))
-            if mother_id and graph.has_node(mother_id):
-                inherited.update(graph.nodes[mother_id].get('family_groups', []))
-            if inherited:
-                family_groups = list(inherited)
-            else:
-                # Assign next available group ID
-                all_groups = [
-                    g for _, d in graph.nodes(data=True)
-                    for g in d.get('family_groups', [])
-                ]
-                family_groups = [(max(all_groups) + 1) if all_groups else 1]
+            all_groups = [
+                g for _, d in graph.nodes(data=True)
+                for g in d.get('family_groups', [])
+            ]
+            family_groups = [(max(all_groups) + 1) if all_groups else 1]
 
         person_uuid = str(uuid.uuid4())
         sex = data['sex'].lower()

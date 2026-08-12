@@ -754,9 +754,9 @@ async function savePerson(e) {
     e.preventDefault();
     const editId   = document.getElementById('edit-person-id').value;
     const fgRaw    = document.getElementById('family_groups').value.trim();
-    const familyGroups = (fgRaw && fgRaw.length > 0)
+    const familyGroups = fgRaw
         ? fgRaw.split(',').map(g => parseInt(g.trim())).filter(g => !isNaN(g))
-        : null;  // null = let backend inherit from parents
+        : undefined;
 
     const payload = {
         first_name:       document.getElementById('first_name').value,
@@ -766,13 +766,11 @@ async function savePerson(e) {
         sex:              document.getElementById('sex').value,
         father_id:        document.getElementById('father_id').value || undefined,
         mother_id:        document.getElementById('mother_id').value || undefined,
+        family_groups:    familyGroups,
         birthday:         document.getElementById('birthday').value || undefined,
         place_of_birth:   document.getElementById('place_of_birth').value || undefined,
         current_location: document.getElementById('current_location').value || undefined,
     };
-
-    // Only include family_groups if explicitly set by user
-    if (familyGroups !== null) payload.family_groups = familyGroups;
 
     try {
         const url    = editId ? `/api/person/${editId}` : '/api/person';
