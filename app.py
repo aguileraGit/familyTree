@@ -26,7 +26,6 @@ def get_tree_by_access_code(access_code: str) -> Optional[Dict]:
         )
         print(f"[DEBUG] PocketBase returned {len(result)} record(s)")
         if result:
-            print(f"[DEBUG] First record: {result[0].__dict__}")
             return result[0]
         return None
     except Exception as e:
@@ -45,22 +44,49 @@ def get_people_for_tree(tree_uuid: str) -> list:
         return []
 
 
+def get_tree_family_groups(tree_record) -> Dict:
+    """Get the family_groups dictionary from a tree record."""
+    try:
+        groups = getattr(tree_record, 'family_groups', None)
+        if isinstance(groups, dict):
+            return groups
+        return {}
+    except Exception:
+        return {}
+
+
+def save_tree_family_groups(tree_record_id: str, groups: Dict) -> bool:
+    """Save the updated family_groups dictionary back to the tree record."""
+    try:
+        pb.collection('trees').update(tree_record_id, {'family_groups': groups})
+        return True
+    except Exception as e:
+        print(f"[DEBUG] Failed to save family groups: {e}")
+        return False
+
+
 def record_to_person(record) -> Dict[str, Any]:
     """Convert a PocketBase people record to a person dict."""
+    raw_groups = getattr(record, 'family_groups', None) or []
+    if isinstance(raw_groups, list):
+        family_groups = [g for g in raw_groups if isinstance(g, str)]
+    else:
+        family_groups = []
+
     return {
-        'first_name': record.first_name,
-        'last_name': record.last_name,
-        'middle_name': getattr(record, 'middle_name', None) or None,
-        'nick_name': getattr(record, 'nick_name', None) or None,
-        'sex': record.sex,
-        'family_groups': record.family_groups or [],
-        'father_id': record.father_id or None,
-        'mother_id': record.mother_id or None,
-        'birthday': record.birthday or None,
+        'first_name':     record.first_name,
+        'last_name':      record.last_name,
+        'middle_name':    getattr(record, 'middle_name', None) or None,
+        'nick_name':      getattr(record, 'nick_name', None) or None,
+        'sex':            record.sex,
+        'family_groups':  family_groups,
+        'father_id':      record.father_id or None,
+        'mother_id':      record.mother_id or None,
+        'birthday':       record.birthday or None,
         'place_of_birth': record.place_of_birth or None,
         'current_location': record.current_location or None,
-        'pos_x': getattr(record, 'pos_x', None),
-        'pos_y': getattr(record, 'pos_y', None),
+        'pos_x':          getattr(record, 'pos_x', None),
+        'pos_y':          getattr(record, 'pos_y', None),
     }
 
 
@@ -69,10 +95,7 @@ def build_graph(people_records: list) -> nx.DiGraph:
     graph = nx.DiGraph()
 
     for record in people_records:
-        graph.add_node(
-            record.person_uuid,
-            **record_to_person(record)
-        )
+        graph.add_node(record.person_uuid, **record_to_person(record))
 
     for record in people_records:
         if record.father_id and graph.has_node(record.father_id):
@@ -102,6 +125,7 @@ def require_tree(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         access_code = request.headers.get('X-Access-Code')
+        print(f"[DEBUG] require_tree: access_code={access_code}")
         if not access_code:
             return jsonify({'success': False, 'error': 'Missing X-Access-Code header'}), 401
 
@@ -115,19 +139,26 @@ def require_tree(f):
 
 
 # ─────────────────────────────────────────────
+# Page routes
+# ─────────────────────────────────────────────
+
+@app.route('/', methods=['GET'])
+def index():
+    return render_template('index.html')
+
+
+@app.route('/landing', methods=['GET'])
+def landing():
+    return render_template('landing.html')
+
+
+# ─────────────────────────────────────────────
 # Tree endpoint
 # ─────────────────────────────────────────────
 
 @app.route('/api/tree/enter', methods=['POST'])
 def enter_tree():
-    """
-    Validate an access code and return tree metadata.
-
-    Request body:
-    {
-        "access_code": "your-uuid-here"
-    }
-    """
+    """Validate an access code and return tree metadata."""
     data = request.json
     access_code = data.get('access_code')
 
@@ -141,11 +172,93 @@ def enter_tree():
     return jsonify({
         'success': True,
         'tree': {
-            'tree_uuid': tree.tree_uuid,
-            'name': tree.name,
-            'description': tree.description or ''
+            'tree_uuid':     tree.tree_uuid,
+            'name':          tree.name,
+            'description':   getattr(tree, 'description', '') or '',
+            'family_groups': get_tree_family_groups(tree)
         }
     }), 200
+
+
+# ─────────────────────────────────────────────
+# Family Group endpoints
+# ─────────────────────────────────────────────
+
+@app.route('/api/familygroups', methods=['GET'])
+@require_tree
+def get_family_groups(tree_uuid=None):
+    """Get all named family groups for this tree."""
+    access_code = request.headers.get('X-Access-Code')
+    tree = get_tree_by_access_code(access_code)
+    groups = get_tree_family_groups(tree)
+    return jsonify({'success': True, 'family_groups': groups}), 200
+
+
+@app.route('/api/familygroup', methods=['POST'])
+@require_tree
+def create_family_group(tree_uuid=None):
+    """Create a new named family group."""
+    print(f"[DEBUG] create_family_group called, tree_uuid={tree_uuid}")
+    access_code = request.headers.get('X-Access-Code')
+    tree = get_tree_by_access_code(access_code)
+    data = request.json
+    print(f"[DEBUG] request data: {data}")
+
+    if not data or not data.get('name'):
+        return jsonify({'success': False, 'error': 'name is required'}), 400
+
+    groups = get_tree_family_groups(tree)
+    group_uuid = str(uuid.uuid4())
+    groups[group_uuid] = data['name']
+
+    if save_tree_family_groups(tree.id, groups):
+        return jsonify({
+            'success':       True,
+            'group_uuid':    group_uuid,
+            'name':          data['name'],
+            'family_groups': groups
+        }), 201
+    return jsonify({'success': False, 'error': 'Failed to save group'}), 500
+
+
+@app.route('/api/familygroup/<path:group_uuid>', methods=['PUT'])
+@require_tree
+def update_family_group(group_uuid, tree_uuid=None):
+    """Rename a family group."""
+    access_code = request.headers.get('X-Access-Code')
+    tree = get_tree_by_access_code(access_code)
+    data = request.json
+
+    if not data or not data.get('name'):
+        return jsonify({'success': False, 'error': 'name is required'}), 400
+
+    groups = get_tree_family_groups(tree)
+    if group_uuid not in groups:
+        return jsonify({'success': False, 'error': 'Group not found'}), 404
+
+    groups[group_uuid] = data['name']
+
+    if save_tree_family_groups(tree.id, groups):
+        return jsonify({'success': True, 'family_groups': groups}), 200
+    return jsonify({'success': False, 'error': 'Failed to save group'}), 500
+
+
+@app.route('/api/familygroup/<path:group_uuid>', methods=['DELETE'])
+@require_tree
+def delete_family_group(group_uuid, tree_uuid=None):
+    """Delete a named family group."""
+    access_code = request.headers.get('X-Access-Code')
+    tree = get_tree_by_access_code(access_code)
+
+    groups = get_tree_family_groups(tree)
+    if group_uuid not in groups:
+        return jsonify({'success': False, 'error': 'Group not found'}), 404
+
+    del groups[group_uuid]
+
+    if save_tree_family_groups(tree.id, groups):
+        return jsonify({'success': True, 'family_groups': groups}), 200
+    return jsonify({'success': False, 'error': 'Failed to delete group'}), 500
 
 
 # ─────────────────────────────────────────────
@@ -155,21 +268,7 @@ def enter_tree():
 @app.route('/api/person', methods=['POST'])
 @require_tree
 def add_person(tree_uuid=None):
-    """
-    Add a new person to the family tree.
-
-    Request body:
-    {
-        "name": "John Doe",
-        "sex": "male",
-        "father_id": "person-uuid-optional",
-        "mother_id": "person-uuid-optional",
-        "family_groups": [1, 2],
-        "birthday": "1980-01-01",
-        "place_of_birth": "Boston",
-        "current_location": "New York"
-    }
-    """
+    """Add a new person to the family tree."""
     data = request.json
 
     try:
@@ -179,7 +278,6 @@ def add_person(tree_uuid=None):
         father_id = data.get('father_id')
         mother_id = data.get('mother_id')
 
-        # Determine family groups
         family_groups = data.get('family_groups')
         if not family_groups:
             all_groups = [
@@ -192,26 +290,26 @@ def add_person(tree_uuid=None):
         sex = data['sex'].lower()
 
         pb.collection('people').create({
-            'tree_id': tree_uuid,
-            'person_uuid': person_uuid,
-            'first_name': data['first_name'],
-            'last_name': data['last_name'],
-            'middle_name': data.get('middle_name', ''),
-            'nick_name': data.get('nick_name', ''),
-            'sex': data['sex'].upper()[0],
-            'family_groups': family_groups,
-            'father_id': father_id or '',
-            'mother_id': mother_id or '',
-            'birthday': data.get('birthday', ''),
+            'tree_id':        tree_uuid,
+            'person_uuid':    person_uuid,
+            'first_name':     data['first_name'],
+            'last_name':      data['last_name'],
+            'middle_name':    data.get('middle_name', ''),
+            'nick_name':      data.get('nick_name', ''),
+            'sex':            sex[0].upper(),
+            'family_groups':  family_groups,
+            'father_id':      father_id or '',
+            'mother_id':      mother_id or '',
+            'birthday':       data.get('birthday', ''),
             'place_of_birth': data.get('place_of_birth', ''),
             'current_location': data.get('current_location', ''),
         })
 
         return jsonify({
-            'success': True,
-            'person_id': person_uuid,
+            'success':       True,
+            'person_id':     person_uuid,
             'family_groups': family_groups,
-            'message': 'Person added successfully'
+            'message':       'Person added successfully'
         }), 201
 
     except Exception as e:
@@ -229,29 +327,15 @@ def get_person(person_uuid, tree_uuid=None):
 
     return jsonify({
         'success': True,
-        'id': person_uuid,
-        'person': record_to_person(record)
+        'id':      person_uuid,
+        'person':  record_to_person(record)
     }), 200
 
 
 @app.route('/api/person/<path:person_uuid>', methods=['PUT'])
 @require_tree
 def update_person(person_uuid, tree_uuid=None):
-    """
-    Update a person's details.
-
-    Request body:
-    {
-        "name": "John Doe",
-        "sex": "male",
-        "father_id": "person-uuid-optional",
-        "mother_id": "person-uuid-optional",
-        "family_groups": [1, 2],
-        "birthday": "1980-01-01",
-        "place_of_birth": "Boston",
-        "current_location": "New York"
-    }
-    """
+    """Update a person's details."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
@@ -270,7 +354,7 @@ def update_person(person_uuid, tree_uuid=None):
         if 'nick_name' in data:
             update_data['nick_name'] = data['nick_name']
         if 'sex' in data:
-            update_data['sex'] = data['sex'].upper()[0]  # 'M' or 'F'
+            update_data['sex'] = data['sex'].upper()[0]
         if 'family_groups' in data:
             update_data['family_groups'] = data['family_groups']
         if 'birthday' in data:
@@ -285,13 +369,12 @@ def update_person(person_uuid, tree_uuid=None):
             update_data['mother_id'] = data['mother_id'] or ''
 
         pb.collection('people').update(record.id, update_data)
-
         updated = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
 
         return jsonify({
             'success': True,
             'message': 'Person updated successfully',
-            'person': record_to_person(updated)
+            'person':  record_to_person(updated)
         }), 200
 
     except Exception as e:
@@ -301,15 +384,7 @@ def update_person(person_uuid, tree_uuid=None):
 @app.route('/api/person/<path:person_uuid>/position', methods=['PUT'])
 @require_tree
 def update_position(person_uuid, tree_uuid=None):
-    """
-    Update a person's canvas position.
-
-    Request body:
-    {
-        "pos_x": 123.45,
-        "pos_y": 678.90
-    }
-    """
+    """Update a person's canvas position."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
@@ -359,9 +434,7 @@ def get_children(person_uuid, tree_uuid=None):
                 'filter': f'tree_id="{tree_uuid}" && (father_id="{person_uuid}" || mother_id="{person_uuid}")'
             }
         )
-
         children = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
-
         return jsonify({'success': True, 'children': children, 'count': len(children)}), 200
 
     except Exception as e:
@@ -371,7 +444,7 @@ def get_children(person_uuid, tree_uuid=None):
 @app.route('/api/person/<path:person_uuid>/siblings', methods=['GET'])
 @require_tree
 def get_siblings(person_uuid, tree_uuid=None):
-    """Get all siblings of a person (share at least one parent)."""
+    """Get all siblings of a person."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
@@ -408,33 +481,23 @@ def get_siblings(person_uuid, tree_uuid=None):
 def get_all_people(tree_uuid=None):
     """Get all people in the family tree."""
     records = get_people_for_tree(tree_uuid)
-
-    people = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
-
+    people  = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
     return jsonify({'success': True, 'people': people, 'count': len(people)}), 200
 
 
 # ─────────────────────────────────────────────
-# Group endpoints
+# Generation endpoint
 # ─────────────────────────────────────────────
 
 @app.route('/api/people/generations', methods=['GET'])
 @require_tree
 def get_generations(tree_uuid=None):
-    """
-    Calculate and return the generation depth for each person.
-    Generation 0 = oldest known ancestors (no parents in tree).
-    Each subsequent generation increments by 1.
-    """
+    """Calculate and return the generation depth for each person."""
     records = get_people_for_tree(tree_uuid)
     graph   = build_graph(records)
 
     generation = {}
-
-    # Roots are nodes with no incoming edges (no parents in tree)
     roots = [n for n in graph.nodes if graph.in_degree(n) == 0]
-
-    # BFS from all roots simultaneously
     queue = list(roots)
     for r in roots:
         generation[r] = 0
@@ -442,8 +505,6 @@ def get_generations(tree_uuid=None):
     while queue:
         current = queue.pop(0)
         for child in graph.successors(current):
-            # A child's generation is the max of all parents' generations + 1
-            # This handles blended families correctly
             parent_gen = max(
                 generation[p]
                 for p in graph.predecessors(child)
@@ -454,25 +515,30 @@ def get_generations(tree_uuid=None):
                 generation[child] = new_gen
                 queue.append(child)
 
-    # Build response with person details
-    result = []
+    result  = []
     for record in records:
-        uuid = record.person_uuid
+        u = record.person_uuid
         result.append({
-            'id':         uuid,
+            'id':         u,
             'first_name': record.first_name,
             'last_name':  record.last_name,
-            'generation': generation.get(uuid, 0)
+            'generation': generation.get(u, 0)
         })
 
-    # Find total number of generations
     max_gen = max((r['generation'] for r in result), default=0)
 
     return jsonify({
-        'success':     True,
-        'people':      result,
+        'success':        True,
+        'people':         result,
         'max_generation': max_gen
     }), 200
+
+
+# ─────────────────────────────────────────────
+# Group endpoints
+# ─────────────────────────────────────────────
+
+@app.route('/api/groups', methods=['GET'])
 @require_tree
 def get_all_groups(tree_uuid=None):
     """Get all family groups."""
@@ -533,7 +599,7 @@ def export_tree(tree_uuid=None):
 def get_stats(tree_uuid=None):
     """Get statistics about the family tree."""
     records = get_people_for_tree(tree_uuid)
-    graph = build_graph(records)
+    graph   = build_graph(records)
 
     all_groups = {
         g for _, d in graph.nodes(data=True)
@@ -543,31 +609,11 @@ def get_stats(tree_uuid=None):
     return jsonify({
         'success': True,
         'stats': {
-            'total_people': graph.number_of_nodes(),
+            'total_people':        graph.number_of_nodes(),
             'total_relationships': graph.number_of_edges(),
-            'total_groups': len(all_groups)
+            'total_groups':        len(all_groups)
         }
     }), 200
-
-
-# ─────────────────────────────────────────────
-# API index
-# ─────────────────────────────────────────────
-
-# ─────────────────────────────────────────────
-# Page routes
-# ─────────────────────────────────────────────
-
-@app.route('/', methods=['GET'])
-def index():
-    """Serve the main family tree page."""
-    return render_template('index.html')
-
-
-@app.route('/landing', methods=['GET'])
-def landing():
-    """Serve the landing page."""
-    return render_template('landing.html')
 
 
 # ─────────────────────────────────────────────
@@ -578,23 +624,27 @@ def landing():
 def api_index():
     """API documentation."""
     return jsonify({
-        'name': 'Family Tree REST API',
+        'name':    'Family Tree REST API',
         'version': '2.0',
         'endpoints': {
-            'POST /api/tree/enter': 'Validate access code and get tree info',
-            'POST /api/person': 'Add a new person',
-            'GET /api/person/<id>': 'Get person details',
-            'PUT /api/person/<id>': 'Update person details',
-            'PUT /api/person/<id>/position': 'Update person canvas position',
-            'GET /api/person/<id>/parents': 'Get parents of a person',
-            'GET /api/person/<id>/children': 'Get children of a person',
-            'GET /api/person/<id>/siblings': 'Get siblings of a person',
-            'GET /api/people': 'Get all people',
-            'GET /api/people/generations': 'Get generation depth for each person',
-            'GET /api/groups': 'Get all family groups',
-            'GET /api/group/<id>': 'Get members of a specific group',
-            'GET /api/export': 'Export family tree',
-            'GET /api/stats': 'Get tree statistics'
+            'POST /api/tree/enter':              'Validate access code and get tree info',
+            'GET /api/familygroups':             'Get all named family groups',
+            'POST /api/familygroup':             'Create a named family group',
+            'PUT /api/familygroup/<uuid>':       'Rename a family group',
+            'DELETE /api/familygroup/<uuid>':    'Delete a family group',
+            'POST /api/person':                  'Add a new person',
+            'GET /api/person/<id>':              'Get person details',
+            'PUT /api/person/<id>':              'Update person details',
+            'PUT /api/person/<id>/position':     'Update person canvas position',
+            'GET /api/person/<id>/parents':      'Get parents of a person',
+            'GET /api/person/<id>/children':     'Get children of a person',
+            'GET /api/person/<id>/siblings':     'Get siblings of a person',
+            'GET /api/people':                   'Get all people',
+            'GET /api/people/generations':       'Get generation depth for each person',
+            'GET /api/groups':                   'Get all family groups',
+            'GET /api/group/<id>':               'Get members of a specific group',
+            'GET /api/export':                   'Export family tree',
+            'GET /api/stats':                    'Get tree statistics'
         }
     }), 200
 

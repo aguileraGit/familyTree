@@ -45,6 +45,30 @@
 </head>
 <body>
 
+<!-- Manage Groups Modal -->
+<div class="modal fade" id="groups-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-people me-2"></i>Manage Family Groups</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Create new group -->
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control form-control-sm" id="new-group-name"
+                           placeholder="New group name e.g. Smith Household">
+                    <button class="btn btn-primary btn-sm" onclick="createFamilyGroup()">
+                        <i class="bi bi-plus-circle me-1"></i>Add
+                    </button>
+                </div>
+                <!-- Existing groups list -->
+                <div id="groups-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal -->
 <div class="modal fade" id="access-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -139,8 +163,9 @@
                         </div>
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Family Groups</label>
-                            <input type="text" class="form-control form-control-sm" id="family_groups" placeholder="e.g. 1,2,3">
-                            <div class="form-text">Comma-separated. Leave blank to auto-assign.</div>
+                            <select class="form-select form-select-sm" id="family_groups" multiple style="height:80px;">
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple.</div>
                         </div>
                         <div class="mb-2">
                             <label class="form-label form-label-sm">Birthday</label>
@@ -180,8 +205,8 @@
                     <button class="btn btn-secondary btn-sm" onclick="showStats()">
                         <i class="bi bi-bar-chart me-1"></i>View Stats
                     </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="showGroups()">
-                        <i class="bi bi-people me-1"></i>View Groups
+                    <button class="btn btn-outline-primary btn-sm" onclick="showManageGroups()">
+                        <i class="bi bi-people me-1"></i>Manage Groups
                     </button>
                     <hr class="my-1">
                     <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
@@ -234,6 +259,7 @@ window.positions       = {};
 window.generationMode  = false;
 window.positionSaveTimer = null;
 window.accessModal     = null;
+window.familyGroups    = {}; // { uuid: name }
 
 const STORAGE_KEY = 'family_tree_access_code';
 
@@ -270,8 +296,10 @@ const apiHeaders = () => ({
     'X-Access-Code': window.accessCode
 });
 
-function groupColor(groupId) {
-    return GROUP_COLORS[(groupId - 1) % GROUP_COLORS.length];
+function groupColor(groupUuid) {
+    const keys = Object.keys(window.familyGroups);
+    const idx  = keys.indexOf(groupUuid);
+    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
 }
 
 function drawGroupCircle(parent, r, familyGroups) {
@@ -425,6 +453,8 @@ function logout() {
 function setTreeMeta(tree) {
     document.getElementById('nav-tree-name').textContent = tree.name;
     document.getElementById('bar-tree-name').textContent = tree.name;
+    window.familyGroups = tree.family_groups || {};
+    populateFamilyGroupDropdown();
 }
 
 // ── Share ──────────────────────────────────────────────────────
@@ -753,10 +783,9 @@ function populateParentDropdowns() {
 async function savePerson(e) {
     e.preventDefault();
     const editId   = document.getElementById('edit-person-id').value;
-    const fgRaw    = document.getElementById('family_groups').value.trim();
-    const familyGroups = fgRaw
-        ? fgRaw.split(',').map(g => parseInt(g.trim())).filter(g => !isNaN(g))
-        : undefined;
+    // Get selected UUIDs from multi-select
+    const fgSelect     = document.getElementById('family_groups');
+    const familyGroups = Array.from(fgSelect.selectedOptions).map(o => o.value);
 
     const payload = {
         first_name:       document.getElementById('first_name').value,
@@ -766,7 +795,7 @@ async function savePerson(e) {
         sex:              document.getElementById('sex').value,
         father_id:        document.getElementById('father_id').value || undefined,
         mother_id:        document.getElementById('mother_id').value || undefined,
-        family_groups:    familyGroups,
+        family_groups:    familyGroups.length > 0 ? familyGroups : undefined,
         birthday:         document.getElementById('birthday').value || undefined,
         place_of_birth:   document.getElementById('place_of_birth').value || undefined,
         current_location: document.getElementById('current_location').value || undefined,
@@ -802,8 +831,10 @@ async function showPersonDetails(personId) {
         const p        = pData.person;
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
         const sexText  = p.sex === 'M' ? 'Male' : 'Female';
-        const groups   = (p.family_groups || []).map(g =>
-            `<span class="badge badge-group">Group ${g}</span>`).join(' ');
+        const groups = (p.family_groups || []).map(uuid => {
+            const name = window.familyGroups[uuid] || uuid;
+            return `<span class="badge badge-group">${name}</span>`;
+        }).join(' ');
 
         let html = `
             <div class="row">
@@ -859,7 +890,12 @@ async function editPerson(personId) {
         document.getElementById('birthday').value         = p.birthday || '';
         document.getElementById('place_of_birth').value   = p.place_of_birth || '';
         document.getElementById('current_location').value = p.current_location || '';
-        document.getElementById('family_groups').value    = (p.family_groups || []).join(', ');
+        document.getElementById('family_groups').value    = '';
+        // Pre-select the person's groups in the multi-select
+        const personGroups = p.family_groups || [];
+        Array.from(document.getElementById('family_groups').options).forEach(opt => {
+            opt.selected = personGroups.includes(opt.value);
+        });
 
         if (parData.success) {
             document.getElementById('father_id').value = parData.parents.father ? parData.parents.father.id : '';
@@ -881,6 +917,146 @@ function cancelEdit() {
     document.getElementById('form-title').innerHTML    = '<i class="bi bi-person-plus me-1"></i>Add New Person';
     document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-plus-circle me-1"></i>Add Person';
     document.getElementById('cancel-btn').style.display = 'none';
+}
+
+// ── Family Group Management ───────────────────────────────────
+
+function populateFamilyGroupDropdown() {
+    const sel = document.getElementById('family_groups');
+    if (!sel) return;
+    const selected = Array.from(sel.selectedOptions).map(o => o.value);
+    sel.innerHTML = '';
+    Object.entries(window.familyGroups).forEach(([uuid, name]) => {
+        const opt = document.createElement('option');
+        opt.value = uuid;
+        opt.textContent = name;
+        opt.selected = selected.includes(uuid);
+        sel.appendChild(opt);
+    });
+}
+
+function renderGroupsList() {
+    const container = document.getElementById('groups-list');
+    if (!container) return;
+
+    if (Object.keys(window.familyGroups).length === 0) {
+        container.innerHTML = '<p class="text-muted small">No groups yet. Add one above.</p>';
+        return;
+    }
+
+    container.innerHTML = Object.entries(window.familyGroups).map(([uuid, name]) => `
+        <div class="d-flex align-items-center gap-2 mb-2" id="group-row-${uuid}">
+            <input type="text" class="form-control form-control-sm" value="${name}"
+                   id="group-name-${uuid}" onkeydown="if(event.key==='Enter') renameFamilyGroup('${uuid}')">
+            <button class="btn btn-outline-primary btn-sm" onclick="renameFamilyGroup('${uuid}')">
+                <i class="bi bi-check"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="deleteFamilyGroup('${uuid}')">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+window.groupsModal = null;
+
+function showManageGroups() {
+    renderGroupsList();
+    if (!window.groupsModal) {
+        window.groupsModal = new bootstrap.Modal(document.getElementById('groups-modal'));
+    }
+    window.groupsModal.show();
+}
+
+async function createFamilyGroup() {
+    const nameEl = document.getElementById('new-group-name');
+    const name   = nameEl.value.trim();
+    if (!name) {
+        alert('Please enter a group name.');
+        return;
+    }
+
+    try {
+        const url = '/api/familygroup';
+        console.log('[DEBUG] createFamilyGroup URL:', url, 'headers:', apiHeaders());
+        const res  = await fetch(url, {
+            method:  'POST',
+            headers: apiHeaders(),
+            body:    JSON.stringify({ name })
+        });
+        const text = await res.text();
+        console.log('[DEBUG] createFamilyGroup response:', res.status, text);
+        const data = JSON.parse(text);
+        if (data.success) {
+            window.familyGroups = data.family_groups;
+            nameEl.value = '';
+            populateFamilyGroupDropdown();
+            renderGroupsList();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        console.error('createFamilyGroup error:', e);
+        alert('Failed to create group: ' + e.message);
+    }
+}
+
+async function renameFamilyGroup(uuid) {
+    const input = document.getElementById(`group-name-${uuid}`);
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) {
+        alert('Please enter a group name.');
+        return;
+    }
+
+    const url = `/api/familygroup/${uuid}`;
+    console.log('[DEBUG] renameFamilyGroup URL:', url);
+
+    try {
+        const res  = await fetch(url, {
+            method:  'PUT',
+            headers: apiHeaders(),
+            body:    JSON.stringify({ name })
+        });
+        const text = await res.text();
+        console.log('[DEBUG] renameFamilyGroup response:', res.status, text);
+        const data = JSON.parse(text);
+        if (data.success) {
+            window.familyGroups = data.family_groups;
+            populateFamilyGroupDropdown();
+            renderGroupsList();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        console.error('renameFamilyGroup error:', e);
+        alert('Failed to rename group: ' + e.message);
+    }
+}
+
+async function deleteFamilyGroup(uuid) {
+    if (!confirm('Delete this family group? People assigned to it will lose this group.')) return;
+
+    try {
+        const res  = await fetch(`/api/familygroup/${uuid}`, {
+            method:  'DELETE',
+            headers: apiHeaders()
+        });
+        const text = await res.text();
+        console.log('[DEBUG] deleteFamilyGroup response:', res.status, text);
+        const data = JSON.parse(text);
+        if (data.success) {
+            window.familyGroups = data.family_groups;
+            populateFamilyGroupDropdown();
+            renderGroupsList();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        console.error('deleteFamilyGroup error:', e);
+        alert('Failed to delete group: ' + e.message);
+    }
 }
 
 // ── Actions ───────────────────────────────────────────────────
