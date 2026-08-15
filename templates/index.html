@@ -226,6 +226,11 @@
                                id="connections-toggle" checked onchange="onConnectionsToggle(this.checked)">
                         <label class="form-check-label small" for="connections-toggle">Show Connections</label>
                     </div>
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                        <input class="form-check-input m-0" type="checkbox" role="switch"
+                               id="between-toggle" checked onchange="onBetweenToggle(this.checked)">
+                        <label class="form-check-label small" for="between-toggle">Show Between Families</label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -270,6 +275,7 @@ window.positions         = {};
 window.generationMode    = false;
 window.showOutlines      = false;
 window.showConnections   = true;
+window.showBetween       = true;
 window.positionSaveTimer = null;
 window.accessModal       = null;
 window.groupsModal       = null;
@@ -476,6 +482,10 @@ function logout() {
     const connToggle = document.getElementById('connections-toggle');
     if (connToggle) connToggle.checked = true;
     window.showConnections = true;
+
+    const betweenToggle = document.getElementById('between-toggle');
+    if (betweenToggle) betweenToggle.checked = true;
+    window.showBetween = true;
 
     showModal();
 }
@@ -692,10 +702,14 @@ function onConnectionsToggle(checked) {
     applyConnectionVisibility();
 }
 
+function onBetweenToggle(checked) {
+    window.showBetween = checked;
+    applyConnectionVisibility();
+}
+
 function applyConnectionVisibility() {
     if (!window.treeData) return;
 
-    // Build a map of person id -> primary family group
     const primaryGroup = {};
     window.treeData.nodes.forEach(n => {
         primaryGroup[n.id] = (n.family_groups && n.family_groups.length > 0)
@@ -708,12 +722,13 @@ function applyConnectionVisibility() {
     Array.from(edgesEl.querySelectorAll('line')).forEach((line, i) => {
         const edge   = window.treeData.edges[i];
         if (!edge) return;
-        const srcGrp = primaryGroup[edge.source];
-        const tgtGrp = primaryGroup[edge.target];
-
-        // Hide only if both nodes share the same primary group and toggle is off
+        const srcGrp  = primaryGroup[edge.source];
+        const tgtGrp  = primaryGroup[edge.target];
         const sameGroup = srcGrp && tgtGrp && srcGrp === tgtGrp;
+
         if (sameGroup && !window.showConnections) {
+            line.style.display = 'none';
+        } else if (!sameGroup && !window.showBetween) {
             line.style.display = 'none';
         } else {
             line.style.display = '';
