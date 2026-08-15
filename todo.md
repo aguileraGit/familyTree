@@ -1,29 +1,41 @@
-## Improvemnts
-- Find relationships between nodes. Great Grand Uncle 4 times removed.
-- How to show generations? Horizontal bands?
-- Snap for better vertical alignment?
-- Auto format (left-to-right off birthdays per family)
 
-- Bubble around groups to lessen the lines
+## Need to fix!
+Edit button gives error message!
 
+When i click on a person and then edit to edit the person's details, I get an error. Error: Failed to load person for editing.
 
-- Consistent color for titles
-- Review required fields
-- The idea of a quick add and then a drop-down for non-required fields
-
+## Improve viewing of Family Groups
+Maybe this should be done in layers. Add different layers to hide/view things.
+- Intra-family_groups - Hide all the lines within a family
+- Box around a family groups
+- Generational divides - Alternating Horizontal Lines to help view generations
 
 
 ## Improving Family Groups - Inheritance
-When a new person is added, if a father or mother is provided, that person shall inherit the family_group.
+The idea was to automatically link a person to a group when they were assigned a mother or father. There is a problem when a mother/father already have more than one group assigned. There is no way to distinuisgh which of those groups is correct.
 
-When a female is added and the mother or father is provided, the maiden name shall be automatically be assigned if the maiden name field in the DB is empty.
+For now, (and maybe forever) I improved how family_groups are created. You can name a group instead of just a number.
 
-**Issue**: Father may already be part of 2 groups. Look for the group shared by the parents if no Family Group is given.
 
+## Fix Generation Button
+Added a button to view by generations. It doesn't appear to work
+
+
+## Relationships
+The ability to click on people and see the relationship between them.
+
+
+## UI Improvements
+- Improve adding people with required fields and a drop-down for additional fields. Need to review what fields are required.
+- Snapping to some kind of grid
+- Auto format (left-to-right off birthdays per family)
+
+
+## Others
 - Spouse - Should we have a link between spouses?
+- Add Maiden name. When adding a new female, if she has a spouse and a father, set the maiden name to father's name
 
-- Add Maiden name. When adding a new female, if she has a spouce and a father, set the maiden name to father's name
 
-## Reference
+### Reference
 - Color platte: https://gka.github.io/palettes/#/33|d|00429d,96ffea,ffffe0|ffffe0,ff005e,93003a|1|1
 

@@ -36,8 +36,8 @@
         .badge-female { background-color: #e94b8f; }
         .badge-group  { background-color: #6c757d; margin-right: 2px; }
 
-        #person-details       { display: none; }
-        #person-details.show  { display: block; }
+        #person-details      { display: none; }
+        #person-details.show { display: block; }
 
         .col-md-10 { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
         .card.mb-3 { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -45,31 +45,7 @@
 </head>
 <body>
 
-<!-- Manage Groups Modal -->
-<div class="modal fade" id="groups-modal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-people me-2"></i>Manage Family Groups</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Create new group -->
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control form-control-sm" id="new-group-name"
-                           placeholder="New group name e.g. Smith Household">
-                    <button class="btn btn-primary btn-sm" onclick="createFamilyGroup()">
-                        <i class="bi bi-plus-circle me-1"></i>Add
-                    </button>
-                </div>
-                <!-- Existing groups list -->
-                <div id="groups-list"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal -->
+<!-- Access Modal -->
 <div class="modal fade" id="access-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
@@ -97,6 +73,28 @@
     </div>
 </div>
 
+<!-- Manage Groups Modal -->
+<div class="modal fade" id="groups-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-people me-2"></i>Manage Family Groups</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control form-control-sm" id="new-group-name"
+                           placeholder="New group name e.g. Smith Household">
+                    <button class="btn btn-primary btn-sm" onclick="createFamilyGroup()">
+                        <i class="bi bi-plus-circle me-1"></i>Add
+                    </button>
+                </div>
+                <div id="groups-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Navbar -->
 <nav class="navbar navbar-dark bg-primary">
     <div class="container-fluid">
@@ -116,8 +114,6 @@
 
         <!-- Sidebar -->
         <div class="col-md-2">
-
-            <!-- Add / Edit Person -->
             <div class="card mb-3">
                 <div class="card-header bg-primary text-white" style="font-size:0.9rem;">
                     <h6 class="mb-0" id="form-title"><i class="bi bi-person-plus me-1"></i>Add New Person</h6>
@@ -162,8 +158,15 @@
                             </select>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label form-label-sm">Family Groups</label>
-                            <select class="form-select form-select-sm" id="family_groups" multiple style="height:80px;">
+                            <label class="form-label form-label-sm">🏠 Immediate Family Group</label>
+                            <select class="form-select form-select-sm" id="family_group_primary">
+                                <option value="">None</option>
+                            </select>
+                            <div class="form-text">The family they were born/raised in.</div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label form-label-sm">Also Member Of</label>
+                            <select class="form-select form-select-sm" id="family_groups_secondary" multiple style="height:70px;">
                             </select>
                             <div class="form-text">Hold Ctrl/Cmd to select multiple.</div>
                         </div>
@@ -190,7 +193,6 @@
                 </div>
             </div>
 
-            <!-- Actions -->
             <div class="card mb-3">
                 <div class="card-header bg-secondary text-white" style="font-size:0.9rem;">
                     <h6 class="mb-0"><i class="bi bi-gear me-1"></i>Actions</h6>
@@ -214,9 +216,13 @@
                                id="generation-toggle" onchange="onGenerationToggle(this.checked)">
                         <label class="form-check-label small" for="generation-toggle">View by Generation</label>
                     </div>
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                        <input class="form-check-input m-0" type="checkbox" role="switch"
+                               id="outlines-toggle" onchange="onOutlinesToggle(this.checked)">
+                        <label class="form-check-label small" for="outlines-toggle">Show Group Outlines</label>
+                    </div>
                 </div>
             </div>
-
         </div>
 
         <!-- Main Panel -->
@@ -226,7 +232,7 @@
                     <div class="fw-semibold" id="bar-tree-name">Family Tree</div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-light btn-sm" onclick="shareAccessCode()" title="Share access code">
+                    <button class="btn btn-light btn-sm" onclick="shareAccessCode()">
                         <i class="bi bi-share me-1"></i>Share
                     </button>
                     <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
@@ -253,13 +259,15 @@
 <script>
 
 // ── Global state ──────────────────────────────────────────────
-window.accessCode      = null;
-window.treeData        = null;
-window.positions       = {};
-window.generationMode  = false;
+window.accessCode        = null;
+window.treeData          = null;
+window.positions         = {};
+window.generationMode    = false;
+window.showOutlines      = false;
 window.positionSaveTimer = null;
-window.accessModal     = null;
-window.familyGroups    = {}; // { uuid: name }
+window.accessModal       = null;
+window.groupsModal       = null;
+window.familyGroups      = {};
 
 const STORAGE_KEY = 'family_tree_access_code';
 
@@ -289,12 +297,8 @@ const displayName = p => {
     return n;
 };
 
-const shortName = p => `${p.first_name} ${p.last_name}`;
-
-const apiHeaders = () => ({
-    'Content-Type': 'application/json',
-    'X-Access-Code': window.accessCode
-});
+const shortName  = p => `${p.first_name} ${p.last_name}`;
+const apiHeaders = () => ({ 'Content-Type': 'application/json', 'X-Access-Code': window.accessCode });
 
 function groupColor(groupUuid) {
     const keys = Object.keys(window.familyGroups);
@@ -345,9 +349,20 @@ function drawGroupCircle(parent, r, familyGroups) {
 // ── Boot ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     window.accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
+
     document.getElementById('person-form').addEventListener('submit', savePerson);
     document.getElementById('modal-access-code').addEventListener('keydown', e => {
         if (e.key === 'Enter') enterTree();
+    });
+
+    // Delegated listener for Edit button
+    document.getElementById('person-details').addEventListener('click', e => {
+        const btn = e.target.closest('#edit-person-btn');
+        if (btn) {
+            const id = btn.getAttribute('data-person-id');
+            console.log('[DEBUG] Edit button clicked, id:', id);
+            editPerson(id);
+        }
     });
 
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -370,9 +385,9 @@ function showModal() {
 async function revalidateAndLoad() {
     try {
         const res  = await fetch('/api/tree/enter', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ access_code: window.accessCode })
+            body:    JSON.stringify({ access_code: window.accessCode })
         });
         const data = await res.json();
         if (data.success) {
@@ -400,9 +415,9 @@ async function enterTree() {
     }
     try {
         const res  = await fetch('/api/tree/enter', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ access_code: code })
+            body:    JSON.stringify({ access_code: code })
         });
         const data = await res.json();
         if (data.success) {
@@ -427,6 +442,8 @@ function logout() {
     window.positions      = {};
     window.treeData       = null;
     window.generationMode = false;
+    window.showOutlines   = false;
+    window.familyGroups   = {};
     localStorage.removeItem(STORAGE_KEY);
 
     const svg = document.getElementById('tree-svg');
@@ -444,8 +461,11 @@ function logout() {
     const details = document.getElementById('person-details');
     if (details) details.classList.remove('show');
 
-    const toggle = document.getElementById('generation-toggle');
-    if (toggle) toggle.checked = false;
+    const genToggle = document.getElementById('generation-toggle');
+    if (genToggle) genToggle.checked = false;
+
+    const outToggle = document.getElementById('outlines-toggle');
+    if (outToggle) outToggle.checked = false;
 
     showModal();
 }
@@ -457,7 +477,6 @@ function setTreeMeta(tree) {
     populateFamilyGroupDropdown();
 }
 
-// ── Share ──────────────────────────────────────────────────────
 async function shareAccessCode() {
     const shareData = {
         title: document.getElementById('bar-tree-name').textContent,
@@ -500,11 +519,9 @@ function renderTree() {
 
     if (!window.treeData || window.treeData.nodes.length === 0) {
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.setAttribute('x', '400');
-        t.setAttribute('y', '200');
+        t.setAttribute('x', '400'); t.setAttribute('y', '200');
         t.setAttribute('text-anchor', 'middle');
-        t.style.fontSize = '16px';
-        t.style.fill = '#999';
+        t.style.fontSize = '16px'; t.style.fill = '#999';
         t.textContent = 'No people yet. Add someone to get started!';
         svgEl.appendChild(t);
         return;
@@ -515,7 +532,6 @@ function renderTree() {
     const root   = d3.hierarchy(hier);
     layout(root);
 
-    // Assign positions — DB first, then in-memory, then layout
     root.descendants().forEach(d => {
         const id = d.data.id;
         if (id === 'root') return;
@@ -587,7 +603,6 @@ function renderTree() {
 
         nodeG.node().appendChild(grp);
 
-        // Native drag
         let dragStartX, dragStartY, origX, origY, moved = false;
 
         grp.addEventListener('mousedown', function(e) {
@@ -621,6 +636,7 @@ function renderTree() {
                     const finalPos = { x: window.positions[person.id].x, y: window.positions[person.id].y };
                     clearTimeout(window.positionSaveTimer);
                     window.positionSaveTimer = setTimeout(() => savePositionToDB(person.id, finalPos), 300);
+                    drawGroupOutlines();
                 } else {
                     showPersonDetails(person.id);
                 }
@@ -631,7 +647,10 @@ function renderTree() {
         });
     });
 
-    requestAnimationFrame(() => fitToView(svgSel, gSel, zoomBehavior));
+    requestAnimationFrame(() => {
+        fitToView(svgSel, gSel, zoomBehavior);
+        drawGroupOutlines();
+    });
 }
 
 // ── Fit to view ───────────────────────────────────────────────
@@ -656,6 +675,75 @@ function fitToView(svgSel, gSel, zoomBehavior) {
     );
 }
 
+// ── Group Outlines ────────────────────────────────────────────
+function onOutlinesToggle(checked) {
+    window.showOutlines = checked;
+    drawGroupOutlines();
+}
+
+function drawGroupOutlines() {
+    const existing = document.getElementById('group-outlines');
+    if (existing) existing.remove();
+    if (!window.showOutlines || !window.treeData) return;
+
+    const gEl    = document.getElementById('tree-g');
+    const edgesEl = document.getElementById('edges');
+    if (!gEl || !edgesEl) return;
+
+    const outlinesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    outlinesG.setAttribute('id', 'group-outlines');
+    gEl.insertBefore(outlinesG, edgesEl);
+
+    const PAD    = 40;
+    const RADIUS = 22;
+
+    const groupMembers = {};
+    window.treeData.nodes.forEach(person => {
+        const pos    = window.positions[person.id];
+        const groups = person.family_groups || [];
+        if (!pos || groups.length === 0) return;
+        const primaryGroup = groups[0];
+        if (!groupMembers[primaryGroup]) groupMembers[primaryGroup] = [];
+        groupMembers[primaryGroup].push(pos);
+    });
+
+    Object.entries(groupMembers).forEach(([groupUuid, positions]) => {
+        if (positions.length === 0) return;
+        const color = groupColor(groupUuid);
+        const name  = window.familyGroups[groupUuid] || groupUuid;
+
+        const minX = Math.min(...positions.map(p => p.x)) - RADIUS - PAD;
+        const minY = Math.min(...positions.map(p => p.y)) - RADIUS - PAD;
+        const maxX = Math.max(...positions.map(p => p.x)) + RADIUS + PAD;
+        const maxY = Math.max(...positions.map(p => p.y)) + RADIUS + PAD;
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x',            minX);
+        rect.setAttribute('y',            minY);
+        rect.setAttribute('width',        maxX - minX);
+        rect.setAttribute('height',       maxY - minY);
+        rect.setAttribute('rx',           16);
+        rect.setAttribute('ry',           16);
+        rect.setAttribute('fill',         color);
+        rect.setAttribute('fill-opacity', '0.12');
+        rect.setAttribute('stroke',       color);
+        rect.setAttribute('stroke-width', '1.5');
+        rect.setAttribute('stroke-opacity', '0.5');
+        outlinesG.appendChild(rect);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x',           minX + 10);
+        label.setAttribute('y',           minY + 16);
+        label.setAttribute('font-size',   '11');
+        label.setAttribute('font-weight', '600');
+        label.setAttribute('fill',        color);
+        label.setAttribute('fill-opacity','0.9');
+        label.setAttribute('pointer-events', 'none');
+        label.textContent = name;
+        outlinesG.appendChild(label);
+    });
+}
+
 // ── Save position ─────────────────────────────────────────────
 async function savePositionToDB(personId, pos) {
     if (window.generationMode) return;
@@ -663,9 +751,9 @@ async function savePositionToDB(personId, pos) {
     console.log('[DEBUG] savePositionToDB:', url, pos);
     try {
         const res  = await fetch(url, {
-            method: 'PUT',
+            method:  'PUT',
             headers: apiHeaders(),
-            body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y })
+            body:    JSON.stringify({ pos_x: pos.x, pos_y: pos.y })
         });
         const text = await res.text();
         console.log('[DEBUG] Position save result:', res.status, text);
@@ -707,9 +795,9 @@ async function applyGenerationLayout() {
         const data = await res.json();
         if (!data.success) return;
 
-        const svgEl  = document.getElementById('tree-svg');
-        const svgW   = svgEl.clientWidth  || 900;
-        const Y_BAND = 120;
+        const svgEl   = document.getElementById('tree-svg');
+        const svgW    = svgEl.clientWidth || 900;
+        const Y_BAND  = 120;
         const TOP_PAD = 60;
 
         const genGroups = {};
@@ -721,8 +809,7 @@ async function applyGenerationLayout() {
 
         Object.entries(genGroups).forEach(([gen, ids]) => {
             const y     = TOP_PAD + parseInt(gen) * Y_BAND;
-            const count = ids.length;
-            const xStep = svgW / (count + 1);
+            const xStep = svgW / (ids.length + 1);
             ids.forEach((id, i) => {
                 window.positions[id] = { x: xStep * (i + 1), y };
             });
@@ -779,13 +866,40 @@ function populateParentDropdowns() {
     });
 }
 
+function populateFamilyGroupDropdown() {
+    const primary   = document.getElementById('family_group_primary');
+    const secondary = document.getElementById('family_groups_secondary');
+    if (!primary || !secondary) return;
+
+    const prevPrimary   = primary.value;
+    const prevSecondary = Array.from(secondary.selectedOptions).map(o => o.value);
+
+    primary.innerHTML   = '<option value="">None</option>';
+    secondary.innerHTML = '';
+
+    Object.entries(window.familyGroups).forEach(([uuid, name]) => {
+        const opt1 = document.createElement('option');
+        opt1.value = uuid; opt1.textContent = name;
+        opt1.selected = uuid === prevPrimary;
+        primary.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = uuid; opt2.textContent = name;
+        opt2.selected = prevSecondary.includes(uuid);
+        secondary.appendChild(opt2);
+    });
+}
+
 // ── Person CRUD ───────────────────────────────────────────────
 async function savePerson(e) {
     e.preventDefault();
-    const editId   = document.getElementById('edit-person-id').value;
-    // Get selected UUIDs from multi-select
-    const fgSelect     = document.getElementById('family_groups');
-    const familyGroups = Array.from(fgSelect.selectedOptions).map(o => o.value);
+    const editId = document.getElementById('edit-person-id').value;
+
+    const primaryUuid    = document.getElementById('family_group_primary').value;
+    const secondaryUuids = Array.from(
+        document.getElementById('family_groups_secondary').selectedOptions
+    ).map(o => o.value).filter(v => v !== primaryUuid);
+    const familyGroups   = primaryUuid ? [primaryUuid, ...secondaryUuids] : secondaryUuids;
 
     const payload = {
         first_name:       document.getElementById('first_name').value,
@@ -806,12 +920,8 @@ async function savePerson(e) {
         const method = editId ? 'PUT' : 'POST';
         const res    = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(payload) });
         const result = await res.json();
-        if (result.success) {
-            cancelEdit();
-            loadTree();
-        } else {
-            alert('Error: ' + result.error);
-        }
+        if (result.success) { cancelEdit(); loadTree(); }
+        else alert('Error: ' + result.error);
     } catch (err) {
         alert('Failed to save person.');
     }
@@ -819,6 +929,9 @@ async function savePerson(e) {
 
 async function showPersonDetails(personId) {
     if (!personId || personId === 'root') return;
+    document.getElementById('person-details-content').innerHTML = '';
+    document.getElementById('person-details').classList.add('show');
+
     try {
         const [pRes, parRes] = await Promise.all([
             fetch(`/api/person/${personId}`,         { headers: apiHeaders() }),
@@ -831,9 +944,11 @@ async function showPersonDetails(personId) {
         const p        = pData.person;
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
         const sexText  = p.sex === 'M' ? 'Male' : 'Female';
-        const groups = (p.family_groups || []).map(uuid => {
+        const groups   = (p.family_groups || []).map((uuid, idx) => {
             const name = window.familyGroups[uuid] || uuid;
-            return `<span class="badge badge-group">${name}</span>`;
+            return idx === 0
+                ? `<span class="badge badge-group" title="Immediate Family">🏠 ${name}</span>`
+                : `<span class="badge badge-group">${name}</span>`;
         }).join(' ');
 
         let html = `
@@ -844,7 +959,7 @@ async function showPersonDetails(personId) {
                     <p class="mb-1 text-muted" style="font-size:0.75rem">${personId}</p>
                 </div>
                 <div class="col-auto">
-                    <button class="btn btn-primary btn-sm" onclick="editPerson('${personId}')">
+                    <button class="btn btn-primary btn-sm" id="edit-person-btn" data-person-id="${personId}">
                         <i class="bi bi-pencil me-1"></i>Edit
                     </button>
                 </div>
@@ -864,37 +979,41 @@ async function showPersonDetails(personId) {
         html += '</div>';
 
         document.getElementById('person-details-content').innerHTML = html;
-        document.getElementById('person-details').classList.add('show');
     } catch (e) {
         console.error('showPersonDetails error:', e);
     }
 }
 
 async function editPerson(personId) {
+    console.log('[DEBUG] editPerson start:', personId);
     try {
-        const [pRes, parRes] = await Promise.all([
-            fetch(`/api/person/${personId}`,         { headers: apiHeaders() }),
-            fetch(`/api/person/${personId}/parents`, { headers: apiHeaders() })
-        ]);
-        const pData   = await pRes.json();
-        const parData = await parRes.json();
-        if (!pData.success) return;
+        const pRes  = await fetch(`/api/person/${personId}`, { headers: apiHeaders() });
+        const pData = await pRes.json();
+        console.log('[DEBUG] pData:', pData);
+        if (!pData.success) { alert('Person not found.'); return; }
 
-        const p = pData.person;
-        document.getElementById('edit-person-id').value   = personId;
-        document.getElementById('first_name').value       = p.first_name || '';
-        document.getElementById('middle_name').value      = p.middle_name || '';
-        document.getElementById('last_name').value        = p.last_name || '';
-        document.getElementById('nick_name').value        = p.nick_name || '';
-        document.getElementById('sex').value              = p.sex === 'M' ? 'male' : 'female';
-        document.getElementById('birthday').value         = p.birthday || '';
-        document.getElementById('place_of_birth').value   = p.place_of_birth || '';
-        document.getElementById('current_location').value = p.current_location || '';
-        document.getElementById('family_groups').value    = '';
-        // Pre-select the person's groups in the multi-select
+        const parRes  = await fetch(`/api/person/${personId}/parents`, { headers: apiHeaders() });
+        const parData = await parRes.json();
+        console.log('[DEBUG] parData:', parData);
+
+        const p            = pData.person;
         const personGroups = p.family_groups || [];
-        Array.from(document.getElementById('family_groups').options).forEach(opt => {
-            opt.selected = personGroups.includes(opt.value);
+        const primaryUuid  = personGroups[0] || '';
+        const secondaryUuids = personGroups.slice(1);
+
+        document.getElementById('edit-person-id').value    = personId;
+        document.getElementById('first_name').value        = p.first_name || '';
+        document.getElementById('middle_name').value       = p.middle_name || '';
+        document.getElementById('last_name').value         = p.last_name || '';
+        document.getElementById('nick_name').value         = p.nick_name || '';
+        document.getElementById('sex').value               = p.sex === 'M' ? 'male' : 'female';
+        document.getElementById('birthday').value          = p.birthday || '';
+        document.getElementById('place_of_birth').value    = p.place_of_birth || '';
+        document.getElementById('current_location').value  = p.current_location || '';
+        document.getElementById('family_group_primary').value = primaryUuid;
+
+        Array.from(document.getElementById('family_groups_secondary').options).forEach(opt => {
+            opt.selected = secondaryUuids.includes(opt.value);
         });
 
         if (parData.success) {
@@ -902,52 +1021,37 @@ async function editPerson(personId) {
             document.getElementById('mother_id').value = parData.parents.mother ? parData.parents.mother.id : '';
         }
 
-        document.getElementById('form-title').innerHTML    = '<i class="bi bi-pencil me-1"></i>Edit Person';
-        document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-check-circle me-1"></i>Update Person';
+        document.getElementById('form-title').innerHTML     = '<i class="bi bi-pencil me-1"></i>Edit Person';
+        document.getElementById('submit-btn').innerHTML     = '<i class="bi bi-check-circle me-1"></i>Update Person';
         document.getElementById('cancel-btn').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
     } catch (e) {
-        alert('Failed to load person for editing.');
+        console.error('[DEBUG] editPerson failed:', e);
+        alert('Failed to load person for editing: ' + e.message);
     }
 }
 
 function cancelEdit() {
     document.getElementById('edit-person-id').value = '';
     document.getElementById('person-form').reset();
-    document.getElementById('form-title').innerHTML    = '<i class="bi bi-person-plus me-1"></i>Add New Person';
-    document.getElementById('submit-btn').innerHTML    = '<i class="bi bi-plus-circle me-1"></i>Add Person';
+    document.getElementById('form-title').innerHTML     = '<i class="bi bi-person-plus me-1"></i>Add New Person';
+    document.getElementById('submit-btn').innerHTML     = '<i class="bi bi-plus-circle me-1"></i>Add Person';
     document.getElementById('cancel-btn').style.display = 'none';
 }
 
 // ── Family Group Management ───────────────────────────────────
-
-function populateFamilyGroupDropdown() {
-    const sel = document.getElementById('family_groups');
-    if (!sel) return;
-    const selected = Array.from(sel.selectedOptions).map(o => o.value);
-    sel.innerHTML = '';
-    Object.entries(window.familyGroups).forEach(([uuid, name]) => {
-        const opt = document.createElement('option');
-        opt.value = uuid;
-        opt.textContent = name;
-        opt.selected = selected.includes(uuid);
-        sel.appendChild(opt);
-    });
-}
-
 function renderGroupsList() {
     const container = document.getElementById('groups-list');
     if (!container) return;
-
     if (Object.keys(window.familyGroups).length === 0) {
         container.innerHTML = '<p class="text-muted small">No groups yet. Add one above.</p>';
         return;
     }
-
     container.innerHTML = Object.entries(window.familyGroups).map(([uuid, name]) => `
-        <div class="d-flex align-items-center gap-2 mb-2" id="group-row-${uuid}">
-            <input type="text" class="form-control form-control-sm" value="${name}"
-                   id="group-name-${uuid}" onkeydown="if(event.key==='Enter') renameFamilyGroup('${uuid}')">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <input type="text" class="form-control form-control-sm" value="${name}" id="group-name-${uuid}"
+                   onkeydown="if(event.key==='Enter') renameFamilyGroup('${uuid}')">
             <button class="btn btn-outline-primary btn-sm" onclick="renameFamilyGroup('${uuid}')">
                 <i class="bi bi-check"></i>
             </button>
@@ -957,8 +1061,6 @@ function renderGroupsList() {
         </div>
     `).join('');
 }
-
-window.groupsModal = null;
 
 function showManageGroups() {
     renderGroupsList();
@@ -971,19 +1073,12 @@ function showManageGroups() {
 async function createFamilyGroup() {
     const nameEl = document.getElementById('new-group-name');
     const name   = nameEl.value.trim();
-    if (!name) {
-        alert('Please enter a group name.');
-        return;
-    }
+    if (!name) { alert('Please enter a group name.'); return; }
 
     try {
         const url = '/api/familygroup';
         console.log('[DEBUG] createFamilyGroup URL:', url, 'headers:', apiHeaders());
-        const res  = await fetch(url, {
-            method:  'POST',
-            headers: apiHeaders(),
-            body:    JSON.stringify({ name })
-        });
+        const res  = await fetch(url, { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ name }) });
         const text = await res.text();
         console.log('[DEBUG] createFamilyGroup response:', res.status, text);
         const data = JSON.parse(text);
@@ -1005,20 +1100,11 @@ async function renameFamilyGroup(uuid) {
     const input = document.getElementById(`group-name-${uuid}`);
     if (!input) return;
     const name = input.value.trim();
-    if (!name) {
-        alert('Please enter a group name.');
-        return;
-    }
-
+    if (!name) { alert('Please enter a group name.'); return; }
     const url = `/api/familygroup/${uuid}`;
     console.log('[DEBUG] renameFamilyGroup URL:', url);
-
     try {
-        const res  = await fetch(url, {
-            method:  'PUT',
-            headers: apiHeaders(),
-            body:    JSON.stringify({ name })
-        });
+        const res  = await fetch(url, { method: 'PUT', headers: apiHeaders(), body: JSON.stringify({ name }) });
         const text = await res.text();
         console.log('[DEBUG] renameFamilyGroup response:', res.status, text);
         const data = JSON.parse(text);
@@ -1036,15 +1122,10 @@ async function renameFamilyGroup(uuid) {
 }
 
 async function deleteFamilyGroup(uuid) {
-    if (!confirm('Delete this family group? People assigned to it will lose this group.')) return;
-
+    if (!confirm('Delete this family group?')) return;
     try {
-        const res  = await fetch(`/api/familygroup/${uuid}`, {
-            method:  'DELETE',
-            headers: apiHeaders()
-        });
+        const res  = await fetch(`/api/familygroup/${uuid}`, { method: 'DELETE', headers: apiHeaders() });
         const text = await res.text();
-        console.log('[DEBUG] deleteFamilyGroup response:', res.status, text);
         const data = JSON.parse(text);
         if (data.success) {
             window.familyGroups = data.family_groups;
@@ -1054,7 +1135,6 @@ async function deleteFamilyGroup(uuid) {
             alert('Error: ' + data.error);
         }
     } catch (e) {
-        console.error('deleteFamilyGroup error:', e);
         alert('Failed to delete group: ' + e.message);
     }
 }
@@ -1069,9 +1149,7 @@ async function exportTree() {
             Object.assign(document.createElement('a'),
                 { href: URL.createObjectURL(blob), download: 'family_tree.json' }).click();
         }
-    } catch (e) {
-        alert('Failed to export tree.');
-    }
+    } catch (e) { alert('Failed to export tree.'); }
 }
 
 async function showStats() {
@@ -1082,27 +1160,7 @@ async function showStats() {
             const s = data.stats;
             alert(`Family Tree Statistics\n\nPeople: ${s.total_people}\nRelationships: ${s.total_relationships}\nFamily Groups: ${s.total_groups}`);
         }
-    } catch (e) {
-        alert('Failed to fetch stats.');
-    }
-}
-
-async function showGroups() {
-    try {
-        const res  = await fetch('/api/groups', { headers: apiHeaders() });
-        const data = await res.json();
-        if (data.success) {
-            let msg = `Family Groups (${data.count} total)\n\n`;
-            for (const [id, members] of Object.entries(data.groups)) {
-                msg += `Group ${id}: ${members.length} member(s)\n`;
-                members.forEach(m => msg += `  - ${shortName(m)} (${m.sex})\n`);
-                msg += '\n';
-            }
-            alert(msg);
-        }
-    } catch (e) {
-        alert('Failed to fetch groups.');
-    }
+    } catch (e) { alert('Failed to fetch stats.'); }
 }
 
 </script>
