@@ -1,20 +1,20 @@
 
 ## Need to fix!
-Edit button gives error message!
+- [ ] If you're a member of an immediate family, that should be available in the other family groups
+- [ ] Don't see a way to clear a selection from the "Also a member of" list (Ctrl to clear!) -> Need a note
 
-When i click on a person and then edit to edit the person's details, I get an error. Error: Failed to load person for editing.
 
 ## Improve viewing of Family Groups
 Maybe this should be done in layers. Add different layers to hide/view things.
-- Intra-family_groups - Hide all the lines within a family
-- Box around a family groups
-- Generational divides - Alternating Horizontal Lines to help view generations
+- [ ] Intra-family_groups - Hide all the lines within a family
+- [x] Box around a family groups
+- [ ] Generational divides - Alternating Horizontal Lines to help view generations
 
 
 ## Improving Family Groups - Inheritance
 The idea was to automatically link a person to a group when they were assigned a mother or father. There is a problem when a mother/father already have more than one group assigned. There is no way to distinuisgh which of those groups is correct.
 
-For now, (and maybe forever) I improved how family_groups are created. You can name a group instead of just a number.
+- [ ] Can now be added. The first person in the list is the immediate family.
 
 
 ## Fix Generation Button

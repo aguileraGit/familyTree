@@ -221,6 +221,11 @@
                                id="outlines-toggle" onchange="onOutlinesToggle(this.checked)">
                         <label class="form-check-label small" for="outlines-toggle">Show Group Outlines</label>
                     </div>
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                        <input class="form-check-input m-0" type="checkbox" role="switch"
+                               id="connections-toggle" checked onchange="onConnectionsToggle(this.checked)">
+                        <label class="form-check-label small" for="connections-toggle">Show Connections</label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -264,6 +269,7 @@ window.treeData          = null;
 window.positions         = {};
 window.generationMode    = false;
 window.showOutlines      = false;
+window.showConnections   = true;
 window.positionSaveTimer = null;
 window.accessModal       = null;
 window.groupsModal       = null;
@@ -467,6 +473,10 @@ function logout() {
     const outToggle = document.getElementById('outlines-toggle');
     if (outToggle) outToggle.checked = false;
 
+    const connToggle = document.getElementById('connections-toggle');
+    if (connToggle) connToggle.checked = true;
+    window.showConnections = true;
+
     showModal();
 }
 
@@ -650,6 +660,7 @@ function renderTree() {
     requestAnimationFrame(() => {
         fitToView(svgSel, gSel, zoomBehavior);
         drawGroupOutlines();
+        applyConnectionVisibility();
     });
 }
 
@@ -676,6 +687,40 @@ function fitToView(svgSel, gSel, zoomBehavior) {
 }
 
 // ── Group Outlines ────────────────────────────────────────────
+function onConnectionsToggle(checked) {
+    window.showConnections = checked;
+    applyConnectionVisibility();
+}
+
+function applyConnectionVisibility() {
+    if (!window.treeData) return;
+
+    // Build a map of person id -> primary family group
+    const primaryGroup = {};
+    window.treeData.nodes.forEach(n => {
+        primaryGroup[n.id] = (n.family_groups && n.family_groups.length > 0)
+            ? n.family_groups[0] : null;
+    });
+
+    const edgesEl = document.getElementById('edges');
+    if (!edgesEl) return;
+
+    Array.from(edgesEl.querySelectorAll('line')).forEach((line, i) => {
+        const edge   = window.treeData.edges[i];
+        if (!edge) return;
+        const srcGrp = primaryGroup[edge.source];
+        const tgtGrp = primaryGroup[edge.target];
+
+        // Hide only if both nodes share the same primary group and toggle is off
+        const sameGroup = srcGrp && tgtGrp && srcGrp === tgtGrp;
+        if (sameGroup && !window.showConnections) {
+            line.style.display = 'none';
+        } else {
+            line.style.display = '';
+        }
+    });
+}
+
 function onOutlinesToggle(checked) {
     window.showOutlines = checked;
     drawGroupOutlines();
