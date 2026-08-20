@@ -6,6 +6,19 @@
 
 
 ## UI Improvements
+- Do not place labels inside the text input. Do make the label text smaller and horizontally closer to the input. Mute the text slightly.
+- Always viewable fields: First Name, Last Name, Sex, Mother, Father, and  Immediate Family Group.
+- Add the rest to the Bootstrap Vertical Collapse Component with a heading that says: Additional personal information
+- Remove the icon to keep inline with the rest of the fields
+
+Move toggle buttons (View by Generation, Show Group Outlines, Show Connections, Show Between Families) into it's own card heading called View options. Place it above the Actions card.
+
+Add a note (Ctrl-Click to deselect) to the "Also a member of" texting.
+
+Update text "Show Connections" to "Show inter-family lines" 
+Update text "Show Between Families" to "Show family-to-family" lines
+Update text "Show Group Outlines" to  "Show family borders"
+
 - Improve adding people with required fields and a drop-down for additional fields. Need to review what fields are required.
 - Snapping to some kind of grid
 - Auto format (left-to-right off birthdays per family)

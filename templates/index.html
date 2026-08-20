@@ -26,6 +26,12 @@
         #person-details.show { display: block; }
         .col-md-10 { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
         .card.mb-3 { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+        /* Compact form */
+        .ff { margin-bottom: 3px; }
+        .ff label { display: block; font-size: 0.67rem; color: #999; margin-bottom: 0; line-height: 1.4; }
+        .extra-toggle { font-size: 0.72rem; color: #aaa; cursor: pointer; text-decoration: none; display: block; margin: 6px 0 3px; }
+        .extra-toggle:hover { color: #666; }
     </style>
 </head>
 <body>
@@ -35,7 +41,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>Family Tree</h5>
+                <h5 class="modal-title">Family Tree</h5>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-3">Enter your family tree access code to continue.</p>
@@ -46,8 +52,8 @@
                 <div id="modal-error" class="alert alert-danger d-none"></div>
             </div>
             <div class="modal-footer flex-column gap-2">
-                <button class="btn btn-primary w-100" onclick="enterTree()"><i class="bi bi-box-arrow-in-right me-1"></i>Enter Tree</button>
-                <a href="/landing" class="btn btn-outline-secondary w-100"><i class="bi bi-info-circle me-1"></i>Don't have a code? Learn more</a>
+                <button class="btn btn-primary w-100" onclick="enterTree()">Enter Tree</button>
+                <a href="/landing" class="btn btn-outline-secondary w-100">Don't have a code? Learn more</a>
             </div>
         </div>
     </div>
@@ -58,7 +64,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-people me-2"></i>Add New Family Group</h5>
+                <h5 class="modal-title">Add New Family Group</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="onNewFamilyModalCancel()"></button>
             </div>
             <div class="modal-body">
@@ -68,7 +74,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="onNewFamilyModalCancel()">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="createAndSelectFamilyGroup()"><i class="bi bi-plus-circle me-1"></i>Create & Select</button>
+                <button type="button" class="btn btn-primary" onclick="createAndSelectFamilyGroup()">Create & Select</button>
             </div>
         </div>
     </div>
@@ -79,13 +85,13 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-people me-2"></i>Manage Family Groups</h5>
+                <h5 class="modal-title">Manage Family Groups</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control form-control-sm" id="new-group-name" placeholder="New group name e.g. Smith Household">
-                    <button class="btn btn-primary btn-sm" onclick="createFamilyGroup()"><i class="bi bi-plus-circle me-1"></i>Add</button>
+                    <input type="text" class="form-control form-control-sm" id="new-group-name" placeholder="New group name">
+                    <button class="btn btn-primary btn-sm" onclick="createFamilyGroup()">Add</button>
                 </div>
                 <div id="groups-list"></div>
             </div>
@@ -96,10 +102,10 @@
 <!-- Navbar -->
 <nav class="navbar navbar-dark bg-primary">
     <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1"><i class="bi bi-diagram-3 me-2"></i>Family Tree</span>
+        <span class="navbar-brand mb-0 h1">Family Tree</span>
         <div class="d-flex align-items-center gap-2">
             <span class="text-white-50 small" id="nav-tree-name"></span>
-            <button class="btn btn-outline-light btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>Log Out</button>
+            <button class="btn btn-outline-light btn-sm" onclick="logout()">Log Out</button>
         </div>
     </div>
 </nav>
@@ -107,85 +113,123 @@
 <!-- Main -->
 <div id="main-content" class="container-fluid mt-4">
     <div class="row">
+
+        <!-- Sidebar -->
         <div class="col-md-2">
+
+            <!-- Add / Edit Person -->
             <div class="card mb-3">
-                <div class="card-header bg-primary text-white" style="font-size:0.9rem;">
-                    <h6 class="mb-0" id="form-title"><i class="bi bi-person-plus me-1"></i>Add New Person</h6>
+                <div class="card-header bg-primary text-white py-1 px-2">
+                    <span id="form-title" style="font-size:0.82rem;font-weight:600;">Add New Person</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-2">
                     <form id="person-form">
                         <input type="hidden" id="edit-person-id">
-                        <div class="mb-2"><label class="form-label form-label-sm">First Name *</label><input type="text" class="form-control form-control-sm" id="first_name" required></div>
-                        <div class="mb-2"><label class="form-label form-label-sm">Middle Name</label><input type="text" class="form-control form-control-sm" id="middle_name"></div>
-                        <div class="mb-2"><label class="form-label form-label-sm">Last Name *</label><input type="text" class="form-control form-control-sm" id="last_name" required></div>
-                        <div class="mb-2"><label class="form-label form-label-sm">Nickname</label><input type="text" class="form-control form-control-sm" id="nick_name"></div>
-                        <div class="mb-2">
-                            <label class="form-label form-label-sm">Sex *</label>
+
+                        <!-- Always visible -->
+                        <div class="ff">
+                            <label>First Name *</label>
+                            <input type="text" class="form-control form-control-sm" id="first_name" required>
+                        </div>
+                        <div class="ff">
+                            <label>Last Name *</label>
+                            <input type="text" class="form-control form-control-sm" id="last_name" required>
+                        </div>
+                        <div class="ff">
+                            <label>Sex *</label>
                             <select class="form-select form-select-sm" id="sex" required>
                                 <option value="">Choose...</option>
                                 <option value="male">Male</option>
                                 <option value="female">Female</option>
                             </select>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label form-label-sm">Father</label>
+                        <div class="ff">
+                            <label>Father</label>
                             <select class="form-select form-select-sm" id="father_id"><option value="">None</option></select>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label form-label-sm">Mother</label>
+                        <div class="ff">
+                            <label>Mother</label>
                             <select class="form-select form-select-sm" id="mother_id"><option value="">None</option></select>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label form-label-sm">&#127968; Immediate Family Group</label>
+                        <div class="ff">
+                            <label>Immediate Family Group</label>
                             <select class="form-select form-select-sm" id="family_group_primary" onchange="onPrimaryGroupChange()">
                                 <option value="">None</option>
                                 <option value="__new__">+ Add New Family Group</option>
                             </select>
-                            <div class="form-text">The family they were born/raised in.</div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label form-label-sm">Also Member Of</label>
-                            <select class="form-select form-select-sm" id="family_groups_secondary" multiple style="height:70px;"></select>
-                            <div class="form-text">Hold Ctrl/Cmd to select multiple.</div>
+
+                        <!-- Collapse toggle -->
+                        <a class="extra-toggle" data-bs-toggle="collapse" data-bs-target="#extra-fields">
+                            Additional personal information ▾
+                        </a>
+
+                        <!-- Collapsible fields -->
+                        <div class="collapse" id="extra-fields">
+                            <div class="ff">
+                                <label>Middle Name</label>
+                                <input type="text" class="form-control form-control-sm" id="middle_name">
+                            </div>
+                            <div class="ff">
+                                <label>Nickname</label>
+                                <input type="text" class="form-control form-control-sm" id="nick_name">
+                            </div>
+                            <div class="ff">
+                                <label>Also Member Of</label>
+                                <select class="form-select form-select-sm" id="family_groups_secondary" multiple style="height:58px;"></select>
+                                <div style="font-size:0.65rem;color:#bbb;">Hold Ctrl/Cmd to select multiple.</div>
+                            </div>
+                            <div class="ff">
+                                <label>Birthday</label>
+                                <input type="date" class="form-control form-control-sm" id="birthday">
+                            </div>
+                            <div class="ff">
+                                <label>Place of Birth</label>
+                                <input type="text" class="form-control form-control-sm" id="place_of_birth">
+                            </div>
+                            <div class="ff">
+                                <label>Current Location</label>
+                                <input type="text" class="form-control form-control-sm" id="current_location">
+                            </div>
                         </div>
-                        <div class="mb-2"><label class="form-label form-label-sm">Birthday</label><input type="date" class="form-control form-control-sm" id="birthday"></div>
-                        <div class="mb-2"><label class="form-label form-label-sm">Place of Birth</label><input type="text" class="form-control form-control-sm" id="place_of_birth"></div>
-                        <div class="mb-3"><label class="form-label form-label-sm">Current Location</label><input type="text" class="form-control form-control-sm" id="current_location"></div>
-                        <button type="submit" class="btn btn-primary btn-sm w-100" id="submit-btn"><i class="bi bi-plus-circle me-1"></i>Add Person</button>
-                        <button type="button" class="btn btn-secondary btn-sm w-100 mt-2" id="cancel-btn" style="display:none;" onclick="cancelEdit()"><i class="bi bi-x-circle me-1"></i>Cancel</button>
+
+                        <button type="submit" class="btn btn-primary btn-sm w-100 mt-2" id="submit-btn">Add Person</button>
+                        <button type="button" class="btn btn-secondary btn-sm w-100 mt-1" id="cancel-btn" style="display:none;" onclick="cancelEdit()">Cancel</button>
                     </form>
                 </div>
             </div>
+
+            <!-- Actions -->
             <div class="card mb-3">
-                <div class="card-header bg-secondary text-white" style="font-size:0.9rem;">
-                    <h6 class="mb-0"><i class="bi bi-gear me-1"></i>Actions</h6>
-                </div>
-                <div class="card-body d-grid gap-2">
-                    <button class="btn btn-success btn-sm" onclick="loadTree()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh Tree</button>
-                    <button class="btn btn-info btn-sm text-white" onclick="exportTree()"><i class="bi bi-download me-1"></i>Export Tree</button>
-                    <button class="btn btn-secondary btn-sm" onclick="showStats()"><i class="bi bi-bar-chart me-1"></i>View Stats</button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="showManageGroups()"><i class="bi bi-people me-1"></i>Manage Groups</button>
+                <div class="card-header bg-secondary text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">Actions</div>
+                <div class="card-body p-2 d-grid gap-1">
+                    <button class="btn btn-success btn-sm" onclick="loadTree()">Refresh Tree</button>
+                    <button class="btn btn-info btn-sm text-white" onclick="exportTree()">Export Tree</button>
+                    <button class="btn btn-secondary btn-sm" onclick="showStats()">View Stats</button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="showManageGroups()">Manage Groups</button>
                     <hr class="my-1">
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
                         <input class="form-check-input m-0" type="checkbox" role="switch" id="generation-toggle" onchange="onGenerationToggle(this.checked)">
                         <label class="form-check-label small" for="generation-toggle">View by Generation</label>
                     </div>
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
                         <input class="form-check-input m-0" type="checkbox" role="switch" id="outlines-toggle" checked onchange="onOutlinesToggle(this.checked)">
                         <label class="form-check-label small" for="outlines-toggle">Show Group Outlines</label>
                     </div>
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
                         <input class="form-check-input m-0" type="checkbox" role="switch" id="connections-toggle" checked onchange="onConnectionsToggle(this.checked)">
                         <label class="form-check-label small" for="connections-toggle">Show Connections</label>
                     </div>
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2 ms-1">
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
                         <input class="form-check-input m-0" type="checkbox" role="switch" id="between-toggle" checked onchange="onBetweenToggle(this.checked)">
                         <label class="form-check-label small" for="between-toggle">Show Between Families</label>
                     </div>
                 </div>
             </div>
+
         </div>
 
+        <!-- Main Panel -->
         <div class="col-md-10">
             <div id="tree-info-bar" class="d-flex justify-content-between align-items-center">
                 <div><div class="fw-semibold" id="bar-tree-name">Family Tree</div></div>
@@ -196,19 +240,17 @@
             </div>
             <div id="tree-container"><svg id="tree-svg"></svg></div>
             <div class="card mt-3" id="person-details">
-                <div class="card-header bg-info text-white" style="font-size:0.9rem;">
-                    <h6 class="mb-0"><i class="bi bi-person-lines-fill me-1"></i>Person Details</h6>
-                </div>
-                <div class="card-body" id="person-details-content"></div>
+                <div class="card-header bg-info text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">Person Details</div>
+                <div class="card-body p-2" id="person-details-content"></div>
             </div>
         </div>
+
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-// ── Global state ──────────────────────────────────────────────
 window.accessCode        = null;
 window.treeData          = null;
 window.positions         = {};
@@ -224,7 +266,6 @@ window.familyGroups      = {};
 
 const STORAGE_KEY = 'family_tree_access_code';
 
-// ── Color palette ─────────────────────────────────────────────
 const GROUP_COLORS = (() => {
     const colors = [
         '#00429d','#0a4fa2','#145ca8','#1f68ad','#2975b2','#3282b7',
@@ -241,7 +282,6 @@ const GROUP_COLORS = (() => {
     return colors;
 })();
 
-// ── Helpers ───────────────────────────────────────────────────
 const displayName = p => {
     let n = p.first_name;
     if (p.middle_name) n += ' ' + p.middle_name;
@@ -283,15 +323,12 @@ function drawGroupCircle(parent, r, familyGroups) {
         parent.appendChild(path);
     });
     const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    ring.setAttribute('r', r);
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', '#fff');
-    ring.setAttribute('stroke-width', '1.5');
+    ring.setAttribute('r', r); ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', '#fff'); ring.setAttribute('stroke-width', '1.5');
     ring.setAttribute('pointer-events', 'none');
     parent.appendChild(ring);
 }
 
-// ── Boot ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     window.accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
     document.getElementById('person-form').addEventListener('submit', savePerson);
@@ -306,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
     else showModal();
 });
 
-// ── Auth ──────────────────────────────────────────────────────
 function showModal() {
     document.getElementById('main-content').classList.add('blurred');
     document.getElementById('modal-error').classList.add('d-none');
@@ -356,18 +392,19 @@ async function enterTree() {
 
 function logout() {
     window.accessCode = null; window.positions = {}; window.treeData = null;
-    window.generationMode = false; window.showOutlines = false;
+    window.generationMode = false; window.showOutlines = true;
     window.showConnections = true; window.showBetween = true;
     window.familyGroups = {};
     localStorage.removeItem(STORAGE_KEY);
-    ['tree-svg','nav-tree-name'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+    const svg = document.getElementById('tree-svg'); if (svg) svg.innerHTML = '';
+    const navName = document.getElementById('nav-tree-name'); if (navName) navName.textContent = '';
     const barName = document.getElementById('bar-tree-name'); if (barName) barName.textContent = 'Family Tree';
-    const stats   = document.getElementById('tree-stats');   if (stats)   stats.textContent   = '0 people';
+    const stats   = document.getElementById('tree-stats'); if (stats) stats.textContent = '0 people';
     const details = document.getElementById('person-details'); if (details) details.classList.remove('show');
-    ['generation-toggle'].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
-    const outToggle = document.getElementById('outlines-toggle'); if (outToggle) outToggle.checked = true;
-    window.showOutlines = true;
-    ['connections-toggle','between-toggle'].forEach(id => { const el = document.getElementById(id); if (el) el.checked = true; });
+    const genT = document.getElementById('generation-toggle'); if (genT) genT.checked = false;
+    const outT = document.getElementById('outlines-toggle');   if (outT) outT.checked = true;
+    const conT = document.getElementById('connections-toggle'); if (conT) conT.checked = true;
+    const betT = document.getElementById('between-toggle');    if (betT) betT.checked = true;
     showModal();
 }
 
@@ -386,10 +423,9 @@ async function shareAccessCode() {
             await navigator.clipboard.writeText(window.accessCode);
             alert('Access code copied to clipboard:\n\n' + window.accessCode);
         }
-    } catch (e) { alert('Share this access code with your family:\n\n' + window.accessCode); }
+    } catch (e) { alert('Share this access code:\n\n' + window.accessCode); }
 }
 
-// ── Load tree ─────────────────────────────────────────────────
 async function loadTree() {
     try {
         const res  = await fetch('/api/export', { headers: apiHeaders() });
@@ -403,11 +439,9 @@ async function loadTree() {
     } catch (e) { console.error('loadTree error:', e); }
 }
 
-// ── Render ────────────────────────────────────────────────────
 function renderTree() {
     const svgEl = document.getElementById('tree-svg');
     svgEl.innerHTML = '';
-
     if (!window.treeData || window.treeData.nodes.length === 0) {
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         t.setAttribute('x', '400'); t.setAttribute('y', '200'); t.setAttribute('text-anchor', 'middle');
@@ -437,9 +471,7 @@ function renderTree() {
     const gSel   = svgSel.append('g').attr('id', 'tree-g');
     const edgeG  = gSel.append('g').attr('id', 'edges');
     const nodeG  = gSel.append('g').attr('id', 'nodes');
-    const textG  = gSel.append('g').attr('id', 'labels'); // always on top
-
-    // Node element map — keyed by person id for direct DOM access during drag
+    const textG  = gSel.append('g').attr('id', 'labels');
     const nodeElMap = {};
 
     const zoomBehavior = d3.zoom().scaleExtent([0.1, 3]).on('zoom', e => gSel.attr('transform', e.transform));
@@ -448,8 +480,7 @@ function renderTree() {
     function drawEdges() {
         edgeG.selectAll('*').remove();
         window.treeData.edges.forEach(edge => {
-            const s = window.positions[edge.source];
-            const t = window.positions[edge.target];
+            const s = window.positions[edge.source], t = window.positions[edge.target];
             if (!s || !t) return;
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
@@ -476,23 +507,26 @@ function renderTree() {
         sexRing.setAttribute('stroke-width', '3'); sexRing.setAttribute('pointer-events', 'none');
         grp.appendChild(sexRing);
 
+        nodeG.node().appendChild(grp);
+        nodeElMap[person.id] = grp;
+
         const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.setAttribute('dy', '35'); label.setAttribute('class', 'node-label');
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('x', pos.x); label.setAttribute('y', pos.y + 35);
+        label.setAttribute('data-label-id', person.id);
         label.textContent = shortName(person);
-        grp.appendChild(label);
+        textG.node().appendChild(label);
 
         if (person.birthday) {
             const yr = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            yr.setAttribute('dy', '48'); yr.setAttribute('class', 'node-year');
+            yr.setAttribute('class', 'node-year');
+            yr.setAttribute('x', pos.x); yr.setAttribute('y', pos.y + 48);
+            yr.setAttribute('data-year-id', person.id);
             yr.textContent = '(' + person.birthday.split('-')[0] + ')';
-            grp.appendChild(yr);
+            textG.node().appendChild(yr);
         }
 
-        nodeG.node().appendChild(grp);
-        nodeElMap[person.id] = grp; // register in map
-
         let dragStartX, dragStartY, origX, origY, moved = false;
-
         grp.addEventListener('mousedown', function(e) {
             e.preventDefault(); e.stopPropagation();
             moved = false;
@@ -500,15 +534,19 @@ function renderTree() {
             origX = window.positions[person.id].x; origY = window.positions[person.id].y;
 
             function onMouseMove(ev) {
-                const gEl   = document.getElementById('tree-g');
-                const scale = (gEl.getCTM() ? gEl.getCTM().a : 1);
-                const dx    = (ev.clientX - dragStartX) / scale;
-                const dy    = (ev.clientY - dragStartY) / scale;
+                const gEl = document.getElementById('tree-g');
+                const scale = gEl.getCTM() ? gEl.getCTM().a : 1;
+                const dx = (ev.clientX - dragStartX) / scale;
+                const dy = (ev.clientY - dragStartY) / scale;
                 if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
                 if (!moved) return;
                 window.positions[person.id].x = origX + dx;
                 window.positions[person.id].y = origY + dy;
                 grp.setAttribute('transform', 'translate(' + window.positions[person.id].x + ',' + window.positions[person.id].y + ')');
+                const lbl = textG.node().querySelector('[data-label-id="' + person.id + '"]');
+                if (lbl) { lbl.setAttribute('x', window.positions[person.id].x); lbl.setAttribute('y', window.positions[person.id].y + 35); }
+                const yr = textG.node().querySelector('[data-year-id="' + person.id + '"]');
+                if (yr) { yr.setAttribute('x', window.positions[person.id].x); yr.setAttribute('y', window.positions[person.id].y + 48); }
                 drawEdges();
             }
 
@@ -525,7 +563,6 @@ function renderTree() {
                     showPersonDetails(person.id);
                 }
             }
-
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
@@ -538,20 +575,18 @@ function renderTree() {
     });
 }
 
-// ── Fit to view ───────────────────────────────────────────────
 function fitToView(svgSel, gSel, zoomBehavior) {
     const svgEl = svgSel.node(), gEl = gSel.node();
-    const svgW  = svgEl.clientWidth || 900, svgH = svgEl.clientHeight || 600;
-    const bbox  = gEl.getBBox();
+    const svgW = svgEl.clientWidth || 900, svgH = svgEl.clientHeight || 600;
+    const bbox = gEl.getBBox();
     if (!bbox || bbox.width === 0 || bbox.height === 0) return;
-    const pad   = 60;
+    const pad = 60;
     const scale = Math.min((svgW - pad * 2) / bbox.width, (svgH - pad * 2) / bbox.height, 1.5);
-    const tx    = (svgW - bbox.width * scale) / 2 - bbox.x * scale;
-    const ty    = (svgH - bbox.height * scale) / 2 - bbox.y * scale;
+    const tx = (svgW - bbox.width * scale) / 2 - bbox.x * scale;
+    const ty = (svgH - bbox.height * scale) / 2 - bbox.y * scale;
     svgSel.transition().duration(600).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
-// ── Group Outlines ────────────────────────────────────────────
 function onOutlinesToggle(checked) { window.showOutlines = checked; drawGroupOutlines(); }
 
 function drawGroupOutlines() {
@@ -564,26 +599,24 @@ function drawGroupOutlines() {
     outlinesG.setAttribute('id', 'group-outlines');
     gEl.insertBefore(outlinesG, edgesEl);
     const PAD = 40, RADIUS = 22;
-    const groupMembers = {};
+    const groupMembersMap = {};
     window.treeData.nodes.forEach(person => {
         const pos = window.positions[person.id];
         const groups = person.family_groups || [];
         if (!pos || groups.length === 0) return;
         const pg = groups[0];
-        if (!groupMembers[pg]) groupMembers[pg] = [];
-        groupMembers[pg].push(person);
+        if (!groupMembersMap[pg]) groupMembersMap[pg] = [];
+        groupMembersMap[pg].push(person);
     });
-    Object.entries(groupMembers).forEach(([groupUuid, members]) => {
+    Object.entries(groupMembersMap).forEach(([groupUuid, members]) => {
         if (members.length === 0) return;
         const color = groupColor(groupUuid);
         const name  = window.familyGroups[groupUuid] || groupUuid;
-
         const positions = members.map(m => window.positions[m.id]);
         const minX = Math.min.apply(null, positions.map(p => p.x)) - RADIUS - PAD;
         const minY = Math.min.apply(null, positions.map(p => p.y)) - RADIUS - PAD;
         const maxX = Math.max.apply(null, positions.map(p => p.x)) + RADIUS + PAD;
         const maxY = Math.max.apply(null, positions.map(p => p.y)) + RADIUS + PAD;
-
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rect.setAttribute('x', minX); rect.setAttribute('y', minY);
         rect.setAttribute('width', maxX - minX); rect.setAttribute('height', maxY - minY);
@@ -593,7 +626,6 @@ function drawGroupOutlines() {
         rect.setAttribute('stroke-opacity', '0.5');
         rect.style.cursor = 'grab';
         outlinesG.appendChild(rect);
-
         const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         lbl.setAttribute('x', minX + 10); lbl.setAttribute('y', minY + 16);
         lbl.setAttribute('font-size', '11'); lbl.setAttribute('font-weight', '600');
@@ -602,41 +634,37 @@ function drawGroupOutlines() {
         lbl.textContent = name;
         outlinesG.appendChild(lbl);
 
-        // Drag the entire group by dragging the rectangle
         let dragStartX, dragStartY, moved = false;
         const memberOrigPositions = {};
-
         rect.addEventListener('mousedown', function(e) {
             e.preventDefault(); e.stopPropagation();
             moved = false;
             dragStartX = e.clientX; dragStartY = e.clientY;
             rect.style.cursor = 'grabbing';
-
-            // Store original positions for all members
             members.forEach(m => {
-                if (window.positions[m.id]) {
-                    memberOrigPositions[m.id] = { x: window.positions[m.id].x, y: window.positions[m.id].y };
-                }
+                if (window.positions[m.id]) memberOrigPositions[m.id] = { x: window.positions[m.id].x, y: window.positions[m.id].y };
             });
-
             function onMouseMove(ev) {
-                const gEl   = document.getElementById('tree-g');
+                const gEl = document.getElementById('tree-g');
                 const scale = gEl.getCTM() ? gEl.getCTM().a : 1;
-                const dx    = (ev.clientX - dragStartX) / scale;
-                const dy    = (ev.clientY - dragStartY) / scale;
+                const dx = (ev.clientX - dragStartX) / scale;
+                const dy = (ev.clientY - dragStartY) / scale;
                 if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
                 if (!moved) return;
-
-                // Move all member nodes
                 members.forEach(m => {
                     if (!memberOrigPositions[m.id]) return;
                     window.positions[m.id].x = memberOrigPositions[m.id].x + dx;
                     window.positions[m.id].y = memberOrigPositions[m.id].y + dy;
                     const nodeEl = document.querySelector('g[data-id="' + m.id + '"]');
                     if (nodeEl) nodeEl.setAttribute('transform', 'translate(' + window.positions[m.id].x + ',' + window.positions[m.id].y + ')');
+                    const textG = document.getElementById('labels');
+                    if (textG) {
+                        const lbl2 = textG.querySelector('[data-label-id="' + m.id + '"]');
+                        if (lbl2) { lbl2.setAttribute('x', window.positions[m.id].x); lbl2.setAttribute('y', window.positions[m.id].y + 35); }
+                        const yr = textG.querySelector('[data-year-id="' + m.id + '"]');
+                        if (yr) { yr.setAttribute('x', window.positions[m.id].x); yr.setAttribute('y', window.positions[m.id].y + 48); }
+                    }
                 });
-
-                // Move the rectangle itself
                 const newMinX = Math.min.apply(null, members.map(m => window.positions[m.id].x)) - RADIUS - PAD;
                 const newMinY = Math.min.apply(null, members.map(m => window.positions[m.id].y)) - RADIUS - PAD;
                 const newMaxX = Math.max.apply(null, members.map(m => window.positions[m.id].x)) + RADIUS + PAD;
@@ -644,21 +672,17 @@ function drawGroupOutlines() {
                 rect.setAttribute('x', newMinX); rect.setAttribute('y', newMinY);
                 rect.setAttribute('width', newMaxX - newMinX); rect.setAttribute('height', newMaxY - newMinY);
                 lbl.setAttribute('x', newMinX + 10); lbl.setAttribute('y', newMinY + 16);
-
-                // Update edges
                 const edgeG = document.getElementById('edges');
                 if (edgeG) {
                     edgeG.querySelectorAll('line').forEach((line, i) => {
                         const edge = window.treeData.edges[i];
                         if (!edge) return;
-                        const s = window.positions[edge.source];
-                        const t = window.positions[edge.target];
+                        const s = window.positions[edge.source], t = window.positions[edge.target];
                         if (s) { line.setAttribute('x1', s.x); line.setAttribute('y1', s.y); }
                         if (t) { line.setAttribute('x2', t.x); line.setAttribute('y2', t.y); }
                     });
                 }
             }
-
             function onMouseUp() {
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
@@ -673,14 +697,12 @@ function drawGroupOutlines() {
                     applyConnectionVisibility();
                 }
             }
-
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
     });
 }
 
-// ── Connection visibility ─────────────────────────────────────
 function onConnectionsToggle(checked) { window.showConnections = checked; applyConnectionVisibility(); }
 function onBetweenToggle(checked)     { window.showBetween     = checked; applyConnectionVisibility(); }
 
@@ -695,8 +717,7 @@ function applyConnectionVisibility() {
     Array.from(edgesEl.querySelectorAll('line')).forEach((line, i) => {
         const edge = window.treeData.edges[i];
         if (!edge) return;
-        const srcGrp    = primaryGroup[edge.source];
-        const tgtGrp    = primaryGroup[edge.target];
+        const srcGrp = primaryGroup[edge.source], tgtGrp = primaryGroup[edge.target];
         const sameGroup = srcGrp && tgtGrp && srcGrp === tgtGrp;
         if (sameGroup && !window.showConnections) line.style.display = 'none';
         else if (!sameGroup && !window.showBetween) line.style.display = 'none';
@@ -704,17 +725,15 @@ function applyConnectionVisibility() {
     });
 }
 
-// ── Save position ─────────────────────────────────────────────
 async function savePositionToDB(personId, pos) {
     if (window.generationMode) return;
     try {
-        const res  = await fetch('/api/person/' + personId + '/position', { method: 'PUT', headers: apiHeaders(), body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y }) });
+        const res = await fetch('/api/person/' + personId + '/position', { method: 'PUT', headers: apiHeaders(), body: JSON.stringify({ pos_x: pos.x, pos_y: pos.y }) });
         const text = await res.text();
-        console.log('[DEBUG] Position save result:', res.status, text);
-    } catch (e) { console.warn('[DEBUG] Failed to save position:', e); }
+        console.log('[DEBUG] pos save:', res.status, text);
+    } catch (e) { console.warn('Failed to save position:', e); }
 }
 
-// ── Generation view ───────────────────────────────────────────
 async function onGenerationToggle(checked) {
     window.generationMode = checked;
     setFormDisabled(checked);
@@ -752,7 +771,6 @@ async function applyGenerationLayout() {
     } catch (e) { console.error('applyGenerationLayout error:', e); }
 }
 
-// ── Hierarchy builder ─────────────────────────────────────────
 function buildHierarchy(data) {
     const nodeMap = new Map();
     data.nodes.forEach(n => nodeMap.set(n.id, Object.assign({}, n, { children: [] })));
@@ -776,16 +794,14 @@ function buildHierarchy(data) {
     return { id: 'root', name: 'root', children: roots.map(r => nodeMap.get(r.id)) };
 }
 
-// ── Dropdowns ─────────────────────────────────────────────────
 function populateParentDropdowns() {
     if (!window.treeData || !window.treeData.nodes) return;
     const fSel = document.getElementById('father_id'), mSel = document.getElementById('mother_id');
     fSel.innerHTML = ''; mSel.innerHTML = '';
-    const noneF = document.createElement('option'); noneF.value = ''; noneF.textContent = 'None'; fSel.appendChild(noneF);
-    const noneM = document.createElement('option'); noneM.value = ''; noneM.textContent = 'None'; mSel.appendChild(noneM);
+    const nF = document.createElement('option'); nF.value = ''; nF.textContent = 'None'; fSel.appendChild(nF);
+    const nM = document.createElement('option'); nM.value = ''; nM.textContent = 'None'; mSel.appendChild(nM);
     window.treeData.nodes.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id; opt.textContent = shortName(p);
+        const opt = document.createElement('option'); opt.value = p.id; opt.textContent = shortName(p);
         if (p.sex === 'M') fSel.appendChild(opt.cloneNode(true));
         if (p.sex === 'F') mSel.appendChild(opt.cloneNode(true));
     });
@@ -844,22 +860,21 @@ function populateFamilyGroupDropdown() {
     const prevSecondary = Array.from(secondary.selectedOptions).map(o => o.value);
     primary.innerHTML = '';
     const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = 'None'; primary.appendChild(noneOpt);
-    const newOpt  = document.createElement('option'); newOpt.value  = '__new__'; newOpt.textContent = '+ Add New Family Group'; primary.appendChild(newOpt);
+    const newOpt  = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ Add New Family Group'; primary.appendChild(newOpt);
     secondary.innerHTML = '';
     Object.entries(window.familyGroups).forEach(([uuid, name]) => {
-        const opt1 = document.createElement('option'); opt1.value = uuid; opt1.textContent = name; opt1.selected = uuid === prevPrimary; primary.appendChild(opt1);
-        const opt2 = document.createElement('option'); opt2.value = uuid; opt2.textContent = name; opt2.selected = prevSecondary.includes(uuid); secondary.appendChild(opt2);
+        const o1 = document.createElement('option'); o1.value = uuid; o1.textContent = name; o1.selected = uuid === prevPrimary; primary.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
     });
     onPrimaryGroupChange();
 }
 
-// ── Person CRUD ───────────────────────────────────────────────
 async function savePerson(e) {
     e.preventDefault();
-    const editId        = document.getElementById('edit-person-id').value;
-    const primaryUuid   = document.getElementById('family_group_primary').value;
+    const editId         = document.getElementById('edit-person-id').value;
+    const primaryUuid    = document.getElementById('family_group_primary').value;
     const secondaryUuids = Array.from(document.getElementById('family_groups_secondary').selectedOptions).map(o => o.value).filter(v => v !== primaryUuid);
-    const familyGroups  = primaryUuid && primaryUuid !== '__new__' ? [primaryUuid, ...secondaryUuids] : secondaryUuids;
+    const familyGroups   = primaryUuid && primaryUuid !== '__new__' ? [primaryUuid, ...secondaryUuids] : secondaryUuids;
     const payload = {
         first_name:       document.getElementById('first_name').value,
         last_name:        document.getElementById('last_name').value,
@@ -893,68 +908,55 @@ async function showPersonDetails(personId) {
         ]);
         const pData = await pRes.json(), parData = await parRes.json();
         if (!pData.success) return;
-        const p        = pData.person;
+        const p = pData.person;
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
         const sexText  = p.sex === 'M' ? 'Male' : 'Female';
-
-        const content = document.getElementById('person-details-content');
+        const content  = document.getElementById('person-details-content');
 
         const row = document.createElement('div'); row.className = 'row';
         const col = document.createElement('div'); col.className = 'col';
-
-        const h6 = document.createElement('h6'); h6.className = 'mb-1'; h6.textContent = displayName(p); col.appendChild(h6);
-
-        const badgeP = document.createElement('p'); badgeP.className = 'mb-1';
-        const sexSpan = document.createElement('span'); sexSpan.className = 'badge ' + sexBadge; sexSpan.textContent = sexText; badgeP.appendChild(sexSpan);
+        const h6  = document.createElement('h6'); h6.className = 'mb-1'; h6.textContent = displayName(p); col.appendChild(h6);
+        const bp  = document.createElement('p'); bp.className = 'mb-1';
+        const ss  = document.createElement('span'); ss.className = 'badge ' + sexBadge; ss.textContent = sexText; bp.appendChild(ss);
         (p.family_groups || []).forEach((uuid, idx) => {
-            const span = document.createElement('span'); span.className = 'badge badge-group ms-1';
-            span.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + (window.familyGroups[uuid] || uuid);
-            if (idx === 0) span.title = 'Immediate Family';
-            badgeP.appendChild(span);
+            const sp = document.createElement('span'); sp.className = 'badge badge-group ms-1';
+            sp.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + (window.familyGroups[uuid] || uuid);
+            if (idx === 0) sp.title = 'Immediate Family';
+            bp.appendChild(sp);
         });
-        col.appendChild(badgeP);
-
+        col.appendChild(bp);
         const idP = document.createElement('p'); idP.className = 'mb-1 text-muted'; idP.style.fontSize = '0.75rem'; idP.textContent = personId; col.appendChild(idP);
-
-        const colAuto = document.createElement('div'); colAuto.className = 'col-auto';
-        const editBtn = document.createElement('button'); editBtn.className = 'btn btn-primary btn-sm';
-        editBtn.id = 'edit-person-btn'; editBtn.setAttribute('data-person-id', personId);
-        editBtn.innerHTML = '<i class="bi bi-pencil me-1"></i>Edit';
-        colAuto.appendChild(editBtn);
-
-        row.appendChild(col); row.appendChild(colAuto); content.appendChild(row);
-
+        const ca = document.createElement('div'); ca.className = 'col-auto';
+        const eb = document.createElement('button'); eb.className = 'btn btn-primary btn-sm'; eb.id = 'edit-person-btn';
+        eb.setAttribute('data-person-id', personId); eb.textContent = 'Edit'; ca.appendChild(eb);
+        row.appendChild(col); row.appendChild(ca); content.appendChild(row);
         const hr = document.createElement('hr'); hr.className = 'my-2'; content.appendChild(hr);
-
-        const detailRow = document.createElement('div'); detailRow.className = 'row g-2';
-        const addDetail = (label, value) => {
+        const dr = document.createElement('div'); dr.className = 'row g-2';
+        const addD = (label, value) => {
             if (!value) return;
             const d = document.createElement('div'); d.className = 'col-sm-4';
             const s = document.createElement('small'); s.className = 'text-muted'; s.textContent = label;
             const v = document.createElement('div'); v.textContent = value;
-            d.appendChild(s); d.appendChild(v); detailRow.appendChild(d);
+            d.appendChild(s); d.appendChild(v); dr.appendChild(d);
         };
-        addDetail('Nickname', p.nick_name);
-        addDetail('Birthday', p.birthday);
-        addDetail('Place of Birth', p.place_of_birth);
-        addDetail('Current Location', p.current_location);
+        addD('Nickname', p.nick_name); addD('Birthday', p.birthday);
+        addD('Place of Birth', p.place_of_birth); addD('Current Location', p.current_location);
         if (parData.success) {
-            if (parData.parents.father) addDetail('Father', displayName(parData.parents.father));
-            if (parData.parents.mother) addDetail('Mother', displayName(parData.parents.mother));
+            if (parData.parents.father) addD('Father', displayName(parData.parents.father));
+            if (parData.parents.mother) addD('Mother', displayName(parData.parents.mother));
         }
-        content.appendChild(detailRow);
+        content.appendChild(dr);
     } catch (e) { console.error('showPersonDetails error:', e); }
 }
 
 async function editPerson(personId) {
-    console.log('[DEBUG] editPerson start:', personId);
+    console.log('[DEBUG] editPerson:', personId);
     try {
         const pRes    = await fetch('/api/person/' + personId, { headers: apiHeaders() });
         const pData   = await pRes.json();
         if (!pData.success) { alert('Person not found.'); return; }
         const parRes  = await fetch('/api/person/' + personId + '/parents', { headers: apiHeaders() });
         const parData = await parRes.json();
-
         const p = pData.person;
         const personGroups   = p.family_groups || [];
         const primaryUuid    = personGroups[0] || '';
@@ -978,8 +980,13 @@ async function editPerson(personId) {
             document.getElementById('father_id').value = parData.parents.father ? parData.parents.father.id : '';
             document.getElementById('mother_id').value = parData.parents.mother ? parData.parents.mother.id : '';
         }
-        document.getElementById('form-title').innerHTML     = '<i class="bi bi-pencil me-1"></i>Edit Person';
-        document.getElementById('submit-btn').innerHTML     = '<i class="bi bi-check-circle me-1"></i>Update Person';
+
+        // Auto-expand if optional fields have values
+        const hasOptional = p.middle_name || p.nick_name || p.birthday || p.place_of_birth || p.current_location || secondaryUuids.length > 0;
+        if (hasOptional) bootstrap.Collapse.getOrCreateInstance(document.getElementById('extra-fields')).show();
+
+        document.getElementById('form-title').textContent   = 'Edit Person';
+        document.getElementById('submit-btn').textContent   = 'Update Person';
         document.getElementById('cancel-btn').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) { console.error('[DEBUG] editPerson failed:', e); alert('Failed to load person for editing: ' + e.message); }
@@ -988,12 +995,12 @@ async function editPerson(personId) {
 function cancelEdit() {
     document.getElementById('edit-person-id').value = '';
     document.getElementById('person-form').reset();
-    document.getElementById('form-title').innerHTML     = '<i class="bi bi-person-plus me-1"></i>Add New Person';
-    document.getElementById('submit-btn').innerHTML     = '<i class="bi bi-plus-circle me-1"></i>Add Person';
+    document.getElementById('form-title').textContent   = 'Add New Person';
+    document.getElementById('submit-btn').textContent   = 'Add Person';
     document.getElementById('cancel-btn').style.display = 'none';
+    bootstrap.Collapse.getOrCreateInstance(document.getElementById('extra-fields')).hide();
 }
 
-// ── Family Group Management ───────────────────────────────────
 function renderGroupsList() {
     const container = document.getElementById('groups-list');
     if (!container) return;
@@ -1005,9 +1012,9 @@ function renderGroupsList() {
         const div = document.createElement('div'); div.className = 'd-flex align-items-center gap-2 mb-2';
         const input = document.createElement('input'); input.type = 'text'; input.className = 'form-control form-control-sm'; input.value = name; input.id = 'group-name-' + uuid;
         input.addEventListener('keydown', e => { if (e.key === 'Enter') renameFamilyGroup(uuid); });
-        const renameBtn = document.createElement('button'); renameBtn.className = 'btn btn-outline-primary btn-sm'; renameBtn.innerHTML = '<i class="bi bi-check"></i>'; renameBtn.addEventListener('click', () => renameFamilyGroup(uuid));
-        const deleteBtn = document.createElement('button'); deleteBtn.className = 'btn btn-outline-danger btn-sm'; deleteBtn.innerHTML = '<i class="bi bi-trash"></i>'; deleteBtn.addEventListener('click', () => deleteFamilyGroup(uuid));
-        div.appendChild(input); div.appendChild(renameBtn); div.appendChild(deleteBtn); container.appendChild(div);
+        const rb = document.createElement('button'); rb.className = 'btn btn-outline-primary btn-sm'; rb.innerHTML = '<i class="bi bi-check"></i>'; rb.addEventListener('click', () => renameFamilyGroup(uuid));
+        const db = document.createElement('button'); db.className = 'btn btn-outline-danger btn-sm';  db.innerHTML = '<i class="bi bi-trash"></i>';  db.addEventListener('click', () => deleteFamilyGroup(uuid));
+        div.appendChild(input); div.appendChild(rb); div.appendChild(db); container.appendChild(div);
     });
 }
 
@@ -1052,7 +1059,6 @@ async function deleteFamilyGroup(uuid) {
     } catch (e) { alert('Failed to delete group: ' + e.message); }
 }
 
-// ── Actions ───────────────────────────────────────────────────
 async function exportTree() {
     try {
         const res  = await fetch('/api/export', { headers: apiHeaders() });
