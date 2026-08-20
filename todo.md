@@ -11,6 +11,8 @@
 - Auto format (left-to-right off birthdays per family)
 - General clean up of buttons not needed
 - Moving toggle switches
+- Stop with the random colors
+- Fix color palette
 
 
 ## Improve viewing of Family Groups

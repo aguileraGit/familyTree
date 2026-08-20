@@ -16,8 +16,8 @@
         .node-circle:active { cursor: grabbing; }
         .node-label { font-size: 11px; font-weight: 500; pointer-events: none; text-anchor: middle; dominant-baseline: auto; }
         .node-year { font-size: 9px; fill: #666; pointer-events: none; text-anchor: middle; }
-        .edge-father { stroke: #4a90e2; stroke-width: 2; fill: none; }
-        .edge-mother { stroke: #e94b8f; stroke-width: 2; fill: none; }
+        .edge-father { stroke: #a8c8f0; stroke-width: 1.5; fill: none; opacity: 0.6; }
+        .edge-mother { stroke: #f5b8d4; stroke-width: 1.5; fill: none; opacity: 0.6; }
         #tree-info-bar { background: linear-gradient(135deg, #0d6efd, #0a58ca); color: white; padding: 10px 16px; border-radius: 8px 8px 0 0; }
         .badge-male { background-color: #4a90e2; }
         .badge-female { background-color: #e94b8f; }
@@ -437,6 +437,7 @@ function renderTree() {
     const gSel   = svgSel.append('g').attr('id', 'tree-g');
     const edgeG  = gSel.append('g').attr('id', 'edges');
     const nodeG  = gSel.append('g').attr('id', 'nodes');
+    const textG  = gSel.append('g').attr('id', 'labels'); // always on top
 
     // Node element map — keyed by person id for direct DOM access during drag
     const nodeElMap = {};
