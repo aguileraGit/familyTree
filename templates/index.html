@@ -177,7 +177,7 @@
                             <div class="ff">
                                 <label>Also Member Of</label>
                                 <select class="form-select form-select-sm" id="family_groups_secondary" multiple style="height:58px;"></select>
-                                <div style="font-size:0.65rem;color:#bbb;">Hold Ctrl/Cmd to select multiple.</div>
+                                <div style="font-size:0.65rem;color:#bbb;">Hold Ctrl/Cmd to select multiple. Ctrl-Click to deselect.</div>
                             </div>
                             <div class="ff">
                                 <label>Birthday</label>
@@ -199,6 +199,29 @@
                 </div>
             </div>
 
+            <!-- View Options -->
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">View Options</div>
+                <div class="card-body p-2 d-grid gap-1">
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input m-0" type="checkbox" role="switch" id="generation-toggle" onchange="onGenerationToggle(this.checked)">
+                        <label class="form-check-label small" for="generation-toggle">View by Generation</label>
+                    </div>
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input m-0" type="checkbox" role="switch" id="outlines-toggle" checked onchange="onOutlinesToggle(this.checked)">
+                        <label class="form-check-label small" for="outlines-toggle">Show family borders</label>
+                    </div>
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input m-0" type="checkbox" role="switch" id="connections-toggle" checked onchange="onConnectionsToggle(this.checked)">
+                        <label class="form-check-label small" for="connections-toggle">Show inter-family lines</label>
+                    </div>
+                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input m-0" type="checkbox" role="switch" id="between-toggle" checked onchange="onBetweenToggle(this.checked)">
+                        <label class="form-check-label small" for="between-toggle">Show family-to-family lines</label>
+                    </div>
+                </div>
+            </div>
+
             <!-- Actions -->
             <div class="card mb-3">
                 <div class="card-header bg-secondary text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">Actions</div>
@@ -207,23 +230,6 @@
                     <button class="btn btn-info btn-sm text-white" onclick="exportTree()">Export Tree</button>
                     <button class="btn btn-secondary btn-sm" onclick="showStats()">View Stats</button>
                     <button class="btn btn-outline-primary btn-sm" onclick="showManageGroups()">Manage Groups</button>
-                    <hr class="my-1">
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
-                        <input class="form-check-input m-0" type="checkbox" role="switch" id="generation-toggle" onchange="onGenerationToggle(this.checked)">
-                        <label class="form-check-label small" for="generation-toggle">View by Generation</label>
-                    </div>
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
-                        <input class="form-check-input m-0" type="checkbox" role="switch" id="outlines-toggle" checked onchange="onOutlinesToggle(this.checked)">
-                        <label class="form-check-label small" for="outlines-toggle">Show Group Outlines</label>
-                    </div>
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
-                        <input class="form-check-input m-0" type="checkbox" role="switch" id="connections-toggle" checked onchange="onConnectionsToggle(this.checked)">
-                        <label class="form-check-label small" for="connections-toggle">Show Connections</label>
-                    </div>
-                    <div class="form-check form-switch ps-0 d-flex align-items-center gap-2">
-                        <input class="form-check-input m-0" type="checkbox" role="switch" id="between-toggle" checked onchange="onBetweenToggle(this.checked)">
-                        <label class="form-check-label small" for="between-toggle">Show Between Families</label>
-                    </div>
                 </div>
             </div>
 
@@ -234,7 +240,7 @@
             <div id="tree-info-bar" class="d-flex justify-content-between align-items-center">
                 <div><div class="fw-semibold" id="bar-tree-name">Family Tree</div></div>
                 <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-light btn-sm" onclick="shareAccessCode()"><i class="bi bi-share me-1"></i>Share</button>
+                    <button class="btn btn-light btn-sm py-0 px-2" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Share</button>
                     <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
                 </div>
             </div>
