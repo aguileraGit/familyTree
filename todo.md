@@ -1,42 +1,17 @@
-
-## Need to fix!
-- [x] If you're a member of an immediate family, that should not be available in the other family groups
-- [x] Don't see a way to clear a selection from the "Also a member of" list (Ctrl to clear!) -> Need a note
-- [x] Rename lines toggle switch to something more meaningful
-
+## Next
+Need AI to undo the changing of the buttons to gray
+Hide UUID when clicking on a person in person details and sex
+Share text should be bold
 
 ## UI Improvements
-- [x] Do not place labels inside the text input. Do make the label text smaller and horizontally closer to the input. Mute the text slightly.
-- [x] Always viewable fields: First Name, Last Name, Sex, Mother, Father, and  Immediate Family Group.
-- [x] Add the rest to the Bootstrap Vertical Collapse Component with a heading that says: Additional personal information
-- [x] Remove the icon to keep inline with the rest of the fields
-
-
-- [x] Move toggle buttons (View by Generation, Show Group Outlines, Show Connections, Show Between Families) into it's own card heading called View options. Place it above the Actions card.
-- [x] Add a note (Ctrl-Click to deselect) to the "Also a member of" texting to better explain how to clear any additional family
-- [x] Update text "Show Connections" to "Show inter-family lines" 
-- [x] Update text "Show Between Families" to "Show family-to-family" lines
-- [x] Update text "Show Group Outlines" to  "Show family borders"
-
-- [x] Improve adding people with required fields and a drop-down for additional fields. Need to review what fields are required.
-- [x] General clean up of buttons not needed
-- [x] Moving toggle switches
-
 - Snapping to some kind of grid
 - Stop with the random colors
 - Fix color palette
-
-
-## Improve viewing of Family Groups
-Maybe this should be done in layers. Add different layers to hide/view things.
-- [x] Intra-family_groups - Hide all the lines within a family
-- [x] Box around a family groups
-
+- Should manage button be there or in View Options?
 
 
 ## Improving Family Groups - Inheritance
 The idea was to automatically link a person to a group when they were assigned a mother or father. There is a problem when a mother/father already have more than one group assigned. There is no way to distinuisgh which of those groups is correct.
-
 - [ ] Can now be added. The first person in the list is the immediate family.
 
 
@@ -48,7 +23,7 @@ Added a button to view by generations. It doesn't appear to work
 
 ## Relationships
 The ability to click on people and see the relationship between them.
-
+Statistics: show number of kids, grandparents
 
 
 ## Others
@@ -66,4 +41,3 @@ The ability to click on people and see the relationship between them.
 
 ### Reference
 - Color platte: https://gka.github.io/palettes/#/33|d|00429d,96ffea,ffffe0|ffffe0,ff005e,93003a|1|1
-

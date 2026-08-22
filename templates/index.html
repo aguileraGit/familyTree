@@ -18,7 +18,6 @@
         .node-year { font-size: 9px; fill: #666; pointer-events: none; text-anchor: middle; }
         .edge-father { stroke: #a8c8f0; stroke-width: 1.5; fill: none; opacity: 0.6; }
         .edge-mother { stroke: #f5b8d4; stroke-width: 1.5; fill: none; opacity: 0.6; }
-        #tree-info-bar { background: linear-gradient(135deg, #0d6efd, #0a58ca); color: white; padding: 10px 16px; border-radius: 8px 8px 0 0; }
         .badge-male { background-color: #4a90e2; }
         .badge-female { background-color: #e94b8f; }
         .badge-group { background-color: #6c757d; margin-right: 2px; }
@@ -26,10 +25,8 @@
         #person-details.show { display: block; }
         .col-md-10 { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
         .card.mb-3 { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-
-        /* Compact form */
-        .ff { margin-bottom: 3px; }
-        .ff label { display: block; font-size: 0.67rem; color: #999; margin-bottom: 0; line-height: 1.4; }
+        .ff { margin-bottom: 5px; }
+        .ff label { display: block; font-size: 0.67rem; color: #999; margin-bottom: 2px; line-height: 1.4; }
         .extra-toggle { font-size: 0.72rem; color: #aaa; cursor: pointer; text-decoration: none; display: block; margin: 6px 0 3px; }
         .extra-toggle:hover { color: #666; }
     </style>
@@ -40,7 +37,7 @@
 <div class="modal fade" id="access-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-secondary text-white">
                 <h5 class="modal-title">Family Tree</h5>
             </div>
             <div class="modal-body">
@@ -63,7 +60,7 @@
 <div class="modal fade" id="new-family-modal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-secondary text-white">
                 <h5 class="modal-title">Add New Family Group</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="onNewFamilyModalCancel()"></button>
             </div>
@@ -84,7 +81,7 @@
 <div class="modal fade" id="groups-modal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-secondary text-white">
                 <h5 class="modal-title">Manage Family Groups</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -100,7 +97,7 @@
 </div>
 
 <!-- Navbar -->
-<nav class="navbar navbar-dark bg-primary">
+<nav class="navbar navbar-dark bg-secondary">
     <div class="container-fluid">
         <span class="navbar-brand mb-0 h1">Family Tree</span>
         <div class="d-flex align-items-center gap-2">
@@ -119,22 +116,14 @@
 
             <!-- Add / Edit Person -->
             <div class="card mb-3">
-                <div class="card-header bg-primary text-white py-1 px-2">
+                <div class="card-header bg-secondary text-white py-1 px-2">
                     <span id="form-title" style="font-size:0.82rem;font-weight:600;">Add New Person</span>
                 </div>
                 <div class="card-body p-2">
                     <form id="person-form">
                         <input type="hidden" id="edit-person-id">
-
-                        <!-- Always visible -->
-                        <div class="ff">
-                            <label>First Name *</label>
-                            <input type="text" class="form-control form-control-sm" id="first_name" required>
-                        </div>
-                        <div class="ff">
-                            <label>Last Name *</label>
-                            <input type="text" class="form-control form-control-sm" id="last_name" required>
-                        </div>
+                        <div class="ff"><label>First Name *</label><input type="text" class="form-control form-control-sm" id="first_name" required></div>
+                        <div class="ff"><label>Last Name *</label><input type="text" class="form-control form-control-sm" id="last_name" required></div>
                         <div class="ff">
                             <label>Sex *</label>
                             <select class="form-select form-select-sm" id="sex" required>
@@ -143,14 +132,8 @@
                                 <option value="female">Female</option>
                             </select>
                         </div>
-                        <div class="ff">
-                            <label>Father</label>
-                            <select class="form-select form-select-sm" id="father_id"><option value="">None</option></select>
-                        </div>
-                        <div class="ff">
-                            <label>Mother</label>
-                            <select class="form-select form-select-sm" id="mother_id"><option value="">None</option></select>
-                        </div>
+                        <div class="ff"><label>Father</label><select class="form-select form-select-sm" id="father_id"><option value="">None</option></select></div>
+                        <div class="ff"><label>Mother</label><select class="form-select form-select-sm" id="mother_id"><option value="">None</option></select></div>
                         <div class="ff">
                             <label>Immediate Family Group</label>
                             <select class="form-select form-select-sm" id="family_group_primary" onchange="onPrimaryGroupChange()">
@@ -158,41 +141,19 @@
                                 <option value="__new__">+ Add New Family Group</option>
                             </select>
                         </div>
-
-                        <!-- Collapse toggle -->
-                        <a class="extra-toggle" data-bs-toggle="collapse" data-bs-target="#extra-fields">
-                            Additional personal information ▾
-                        </a>
-
-                        <!-- Collapsible fields -->
+                        <a class="extra-toggle" data-bs-toggle="collapse" data-bs-target="#extra-fields">Additional personal information ▾</a>
                         <div class="collapse" id="extra-fields">
-                            <div class="ff">
-                                <label>Middle Name</label>
-                                <input type="text" class="form-control form-control-sm" id="middle_name">
-                            </div>
-                            <div class="ff">
-                                <label>Nickname</label>
-                                <input type="text" class="form-control form-control-sm" id="nick_name">
-                            </div>
+                            <div class="ff"><label>Middle Name</label><input type="text" class="form-control form-control-sm" id="middle_name"></div>
+                            <div class="ff"><label>Nickname</label><input type="text" class="form-control form-control-sm" id="nick_name"></div>
                             <div class="ff">
                                 <label>Also Member Of</label>
                                 <select class="form-select form-select-sm" id="family_groups_secondary" multiple style="height:58px;"></select>
                                 <div style="font-size:0.65rem;color:#bbb;">Hold Ctrl/Cmd to select multiple. Ctrl-Click to deselect.</div>
                             </div>
-                            <div class="ff">
-                                <label>Birthday</label>
-                                <input type="date" class="form-control form-control-sm" id="birthday">
-                            </div>
-                            <div class="ff">
-                                <label>Place of Birth</label>
-                                <input type="text" class="form-control form-control-sm" id="place_of_birth">
-                            </div>
-                            <div class="ff">
-                                <label>Current Location</label>
-                                <input type="text" class="form-control form-control-sm" id="current_location">
-                            </div>
+                            <div class="ff"><label>Birthday</label><input type="date" class="form-control form-control-sm" id="birthday"></div>
+                            <div class="ff"><label>Place of Birth</label><input type="text" class="form-control form-control-sm" id="place_of_birth"></div>
+                            <div class="ff"><label>Current Location</label><input type="text" class="form-control form-control-sm" id="current_location"></div>
                         </div>
-
                         <button type="submit" class="btn btn-primary btn-sm w-100 mt-2" id="submit-btn">Add Person</button>
                         <button type="button" class="btn btn-secondary btn-sm w-100 mt-1" id="cancel-btn" style="display:none;" onclick="cancelEdit()">Cancel</button>
                     </form>
@@ -237,8 +198,8 @@
 
         <!-- Main Panel -->
         <div class="col-md-10">
-            <div id="tree-info-bar" class="d-flex justify-content-between align-items-center">
-                <div><div class="fw-semibold" id="bar-tree-name">Family Tree</div></div>
+            <div class="d-flex justify-content-between align-items-center bg-secondary text-white py-1 px-3" style="border-radius:8px 8px 0 0;">
+                <div class="fw-semibold small" id="bar-tree-name">Family Tree</div>
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-light btn-sm py-0 px-2" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Share</button>
                     <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
@@ -246,7 +207,7 @@
             </div>
             <div id="tree-container"><svg id="tree-svg"></svg></div>
             <div class="card mt-3" id="person-details">
-                <div class="card-header bg-info text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">Person Details</div>
+                <div class="card-header bg-secondary text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">Person Details</div>
                 <div class="card-body p-2" id="person-details-content"></div>
             </div>
         </div>
@@ -500,19 +461,15 @@ function renderTree() {
     window.treeData.nodes.forEach(person => {
         const pos = window.positions[person.id];
         if (!pos) return;
-
         const grp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         grp.setAttribute('transform', 'translate(' + pos.x + ',' + pos.y + ')');
         grp.setAttribute('data-id', person.id);
-
         drawGroupCircle(grp, 22, person.family_groups);
-
         const sexRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         sexRing.setAttribute('r', '22'); sexRing.setAttribute('fill', 'none');
         sexRing.setAttribute('stroke', person.sex === 'M' ? '#4a90e2' : '#e94b8f');
         sexRing.setAttribute('stroke-width', '3'); sexRing.setAttribute('pointer-events', 'none');
         grp.appendChild(sexRing);
-
         nodeG.node().appendChild(grp);
         nodeElMap[person.id] = grp;
 
@@ -538,7 +495,6 @@ function renderTree() {
             moved = false;
             dragStartX = e.clientX; dragStartY = e.clientY;
             origX = window.positions[person.id].x; origY = window.positions[person.id].y;
-
             function onMouseMove(ev) {
                 const gEl = document.getElementById('tree-g');
                 const scale = gEl.getCTM() ? gEl.getCTM().a : 1;
@@ -555,7 +511,6 @@ function renderTree() {
                 if (yr) { yr.setAttribute('x', window.positions[person.id].x); yr.setAttribute('y', window.positions[person.id].y + 48); }
                 drawEdges();
             }
-
             function onMouseUp() {
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
@@ -651,8 +606,8 @@ function drawGroupOutlines() {
                 if (window.positions[m.id]) memberOrigPositions[m.id] = { x: window.positions[m.id].x, y: window.positions[m.id].y };
             });
             function onMouseMove(ev) {
-                const gEl = document.getElementById('tree-g');
-                const scale = gEl.getCTM() ? gEl.getCTM().a : 1;
+                const gEl2 = document.getElementById('tree-g');
+                const scale = gEl2.getCTM() ? gEl2.getCTM().a : 1;
                 const dx = (ev.clientX - dragStartX) / scale;
                 const dy = (ev.clientY - dragStartY) / scale;
                 if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
@@ -663,12 +618,12 @@ function drawGroupOutlines() {
                     window.positions[m.id].y = memberOrigPositions[m.id].y + dy;
                     const nodeEl = document.querySelector('g[data-id="' + m.id + '"]');
                     if (nodeEl) nodeEl.setAttribute('transform', 'translate(' + window.positions[m.id].x + ',' + window.positions[m.id].y + ')');
-                    const textG = document.getElementById('labels');
-                    if (textG) {
-                        const lbl2 = textG.querySelector('[data-label-id="' + m.id + '"]');
-                        if (lbl2) { lbl2.setAttribute('x', window.positions[m.id].x); lbl2.setAttribute('y', window.positions[m.id].y + 35); }
-                        const yr = textG.querySelector('[data-year-id="' + m.id + '"]');
-                        if (yr) { yr.setAttribute('x', window.positions[m.id].x); yr.setAttribute('y', window.positions[m.id].y + 48); }
+                    const tG = document.getElementById('labels');
+                    if (tG) {
+                        const l = tG.querySelector('[data-label-id="' + m.id + '"]');
+                        if (l) { l.setAttribute('x', window.positions[m.id].x); l.setAttribute('y', window.positions[m.id].y + 35); }
+                        const y = tG.querySelector('[data-year-id="' + m.id + '"]');
+                        if (y) { y.setAttribute('x', window.positions[m.id].x); y.setAttribute('y', window.positions[m.id].y + 48); }
                     }
                 });
                 const newMinX = Math.min.apply(null, members.map(m => window.positions[m.id].x)) - RADIUS - PAD;
@@ -678,9 +633,9 @@ function drawGroupOutlines() {
                 rect.setAttribute('x', newMinX); rect.setAttribute('y', newMinY);
                 rect.setAttribute('width', newMaxX - newMinX); rect.setAttribute('height', newMaxY - newMinY);
                 lbl.setAttribute('x', newMinX + 10); lbl.setAttribute('y', newMinY + 16);
-                const edgeG = document.getElementById('edges');
-                if (edgeG) {
-                    edgeG.querySelectorAll('line').forEach((line, i) => {
+                const edgeG2 = document.getElementById('edges');
+                if (edgeG2) {
+                    edgeG2.querySelectorAll('line').forEach((line, i) => {
                         const edge = window.treeData.edges[i];
                         if (!edge) return;
                         const s = window.positions[edge.source], t = window.positions[edge.target];
@@ -756,8 +711,8 @@ async function onGenerationToggle(checked) {
 function setFormDisabled(disabled) {
     document.getElementById('person-form').querySelectorAll('input, select, button, textarea').forEach(el => { el.disabled = disabled; });
     const header = document.getElementById('form-title').closest('.card-header');
-    if (disabled) header.classList.replace('bg-primary', 'bg-secondary');
-    else header.classList.replace('bg-secondary', 'bg-primary');
+    if (disabled) header.classList.replace('bg-secondary', 'bg-dark');
+    else header.classList.replace('bg-dark', 'bg-secondary');
 }
 
 async function applyGenerationLayout() {
@@ -918,7 +873,6 @@ async function showPersonDetails(personId) {
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
         const sexText  = p.sex === 'M' ? 'Male' : 'Female';
         const content  = document.getElementById('person-details-content');
-
         const row = document.createElement('div'); row.className = 'row';
         const col = document.createElement('div'); col.className = 'col';
         const h6  = document.createElement('h6'); h6.className = 'mb-1'; h6.textContent = displayName(p); col.appendChild(h6);
@@ -956,7 +910,6 @@ async function showPersonDetails(personId) {
 }
 
 async function editPerson(personId) {
-    console.log('[DEBUG] editPerson:', personId);
     try {
         const pRes    = await fetch('/api/person/' + personId, { headers: apiHeaders() });
         const pData   = await pRes.json();
@@ -967,7 +920,6 @@ async function editPerson(personId) {
         const personGroups   = p.family_groups || [];
         const primaryUuid    = personGroups[0] || '';
         const secondaryUuids = personGroups.slice(1);
-
         document.getElementById('edit-person-id').value    = personId;
         document.getElementById('first_name').value        = p.first_name || '';
         document.getElementById('middle_name').value       = p.middle_name || '';
@@ -986,16 +938,13 @@ async function editPerson(personId) {
             document.getElementById('father_id').value = parData.parents.father ? parData.parents.father.id : '';
             document.getElementById('mother_id').value = parData.parents.mother ? parData.parents.mother.id : '';
         }
-
-        // Auto-expand if optional fields have values
         const hasOptional = p.middle_name || p.nick_name || p.birthday || p.place_of_birth || p.current_location || secondaryUuids.length > 0;
         if (hasOptional) bootstrap.Collapse.getOrCreateInstance(document.getElementById('extra-fields')).show();
-
         document.getElementById('form-title').textContent   = 'Edit Person';
         document.getElementById('submit-btn').textContent   = 'Update Person';
         document.getElementById('cancel-btn').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (e) { console.error('[DEBUG] editPerson failed:', e); alert('Failed to load person for editing: ' + e.message); }
+    } catch (e) { alert('Failed to load person for editing: ' + e.message); }
 }
 
 function cancelEdit() {
@@ -1019,7 +968,7 @@ function renderGroupsList() {
         const input = document.createElement('input'); input.type = 'text'; input.className = 'form-control form-control-sm'; input.value = name; input.id = 'group-name-' + uuid;
         input.addEventListener('keydown', e => { if (e.key === 'Enter') renameFamilyGroup(uuid); });
         const rb = document.createElement('button'); rb.className = 'btn btn-outline-primary btn-sm'; rb.innerHTML = '<i class="bi bi-check"></i>'; rb.addEventListener('click', () => renameFamilyGroup(uuid));
-        const db = document.createElement('button'); db.className = 'btn btn-outline-danger btn-sm';  db.innerHTML = '<i class="bi bi-trash"></i>';  db.addEventListener('click', () => deleteFamilyGroup(uuid));
+        const db = document.createElement('button'); db.className = 'btn btn-outline-danger btn-sm'; db.innerHTML = '<i class="bi bi-trash"></i>'; db.addEventListener('click', () => deleteFamilyGroup(uuid));
         div.appendChild(input); div.appendChild(rb); div.appendChild(db); container.appendChild(div);
     });
 }
