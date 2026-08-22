@@ -1,7 +1,5 @@
 ## Next
-Need AI to undo the changing of the buttons to gray
-Hide UUID when clicking on a person in person details and sex
-Share text should be bold
+
 
 ## UI Improvements
 - Snapping to some kind of grid

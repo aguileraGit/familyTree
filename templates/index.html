@@ -201,7 +201,7 @@
             <div class="d-flex justify-content-between align-items-center bg-secondary text-white py-1 px-3" style="border-radius:8px 8px 0 0;">
                 <div class="fw-semibold small" id="bar-tree-name">Family Tree</div>
                 <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-light btn-sm py-0 px-2" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Share</button>
+                    <button class="btn btn-light btn-sm py-0 px-2 fw-bold" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Share</button>
                     <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
                 </div>
             </div>
@@ -863,11 +863,12 @@ async function showPersonDetails(personId) {
     document.getElementById('person-details-content').innerHTML = '';
     document.getElementById('person-details').classList.add('show');
     try {
-        const [pRes, parRes] = await Promise.all([
+        const [pRes, parRes, sibRes] = await Promise.all([
             fetch('/api/person/' + personId, { headers: apiHeaders() }),
-            fetch('/api/person/' + personId + '/parents', { headers: apiHeaders() })
+            fetch('/api/person/' + personId + '/parents', { headers: apiHeaders() }),
+            fetch('/api/person/' + personId + '/siblings', { headers: apiHeaders() })
         ]);
-        const pData = await pRes.json(), parData = await parRes.json();
+        const pData = await pRes.json(), parData = await parRes.json(), sibData = await sibRes.json();
         if (!pData.success) return;
         const p = pData.person;
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
@@ -877,7 +878,6 @@ async function showPersonDetails(personId) {
         const col = document.createElement('div'); col.className = 'col';
         const h6  = document.createElement('h6'); h6.className = 'mb-1'; h6.textContent = displayName(p); col.appendChild(h6);
         const bp  = document.createElement('p'); bp.className = 'mb-1';
-        const ss  = document.createElement('span'); ss.className = 'badge ' + sexBadge; ss.textContent = sexText; bp.appendChild(ss);
         (p.family_groups || []).forEach((uuid, idx) => {
             const sp = document.createElement('span'); sp.className = 'badge badge-group ms-1';
             sp.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + (window.familyGroups[uuid] || uuid);
@@ -885,7 +885,6 @@ async function showPersonDetails(personId) {
             bp.appendChild(sp);
         });
         col.appendChild(bp);
-        const idP = document.createElement('p'); idP.className = 'mb-1 text-muted'; idP.style.fontSize = '0.75rem'; idP.textContent = personId; col.appendChild(idP);
         const ca = document.createElement('div'); ca.className = 'col-auto';
         const eb = document.createElement('button'); eb.className = 'btn btn-primary btn-sm'; eb.id = 'edit-person-btn';
         eb.setAttribute('data-person-id', personId); eb.textContent = 'Edit'; ca.appendChild(eb);
@@ -904,6 +903,12 @@ async function showPersonDetails(personId) {
         if (parData.success) {
             if (parData.parents.father) addD('Father', displayName(parData.parents.father));
             if (parData.parents.mother) addD('Mother', displayName(parData.parents.mother));
+        }
+        if (sibData.success && sibData.siblings.length > 0) {
+            const brothers = sibData.siblings.filter(s => s.sex === 'M');
+            const sisters  = sibData.siblings.filter(s => s.sex === 'F');
+            if (brothers.length > 0) addD('Brothers', brothers.map(s => displayName(s)).join(', '));
+            if (sisters.length > 0)  addD('Sisters',  sisters.map(s => displayName(s)).join(', '));
         }
         content.appendChild(dr);
     } catch (e) { console.error('showPersonDetails error:', e); }
