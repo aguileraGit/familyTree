@@ -863,12 +863,19 @@ async function showPersonDetails(personId) {
     document.getElementById('person-details-content').innerHTML = '';
     document.getElementById('person-details').classList.add('show');
     try {
-        const [pRes, parRes, sibRes] = await Promise.all([
+        const [pRes, parRes, sibRes, auRes, cousRes] = await Promise.all([
             fetch('/api/person/' + personId, { headers: apiHeaders() }),
             fetch('/api/person/' + personId + '/parents', { headers: apiHeaders() }),
-            fetch('/api/person/' + personId + '/siblings', { headers: apiHeaders() })
+            fetch('/api/person/' + personId + '/siblings', { headers: apiHeaders() }),
+            fetch('/api/person/' + personId + '/auntsuncles', { headers: apiHeaders() }),
+            fetch('/api/person/' + personId + '/cousins', { headers: apiHeaders() })
         ]);
-        const pData = await pRes.json(), parData = await parRes.json(), sibData = await sibRes.json();
+        console.log('[DEBUG] cousins status:', cousRes.status);
+        const pData    = await pRes.json();
+        const parData  = await parRes.json();
+        const sibData  = await sibRes.json();
+        const auData   = await auRes.json();
+        const cousData = await cousRes.json();
         if (!pData.success) return;
         const p = pData.person;
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
@@ -909,6 +916,15 @@ async function showPersonDetails(personId) {
             const sisters  = sibData.siblings.filter(s => s.sex === 'F');
             if (brothers.length > 0) addD('Brothers', brothers.map(s => displayName(s)).join(', '));
             if (sisters.length > 0)  addD('Sisters',  sisters.map(s => displayName(s)).join(', '));
+        }
+        if (cousData.success && cousData.cousins.length > 0) {
+            addD('Cousins', cousData.cousins.map(c => displayName(c)).join(', '));
+        }
+        if (auData.success && auData.aunts_uncles.length > 0) {
+            const uncles = auData.aunts_uncles.filter(a => a.sex === 'M');
+            const aunts  = auData.aunts_uncles.filter(a => a.sex === 'F');
+            if (uncles.length > 0) addD('Uncles', uncles.map(a => displayName(a)).join(', '));
+            if (aunts.length > 0)  addD('Aunts',  aunts.map(a => displayName(a)).join(', '));
         }
         content.appendChild(dr);
     } catch (e) { console.error('showPersonDetails error:', e); }

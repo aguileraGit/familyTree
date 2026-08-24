@@ -1,5 +1,4 @@
 import uuid
-import json
 from functools import wraps
 from typing import Optional, Dict, Any
 
@@ -18,7 +17,6 @@ pb = PocketBase('https://pocketbase.tail32217.ts.net')
 # ─────────────────────────────────────────────
 
 def get_tree_by_access_code(access_code: str) -> Optional[Dict]:
-    """Look up a tree record by access code. Returns the record or None."""
     try:
         print(f"[DEBUG] Looking up access_code: '{access_code}'")
         result = pb.collection('trees').get_full_list(
@@ -34,18 +32,15 @@ def get_tree_by_access_code(access_code: str) -> Optional[Dict]:
 
 
 def get_people_for_tree(tree_uuid: str) -> list:
-    """Fetch all people belonging to a tree."""
     try:
-        records = pb.collection('people').get_full_list(
+        return pb.collection('people').get_full_list(
             query_params={'filter': f'tree_id="{tree_uuid}"'}
         )
-        return records
     except Exception:
         return []
 
 
 def get_tree_family_groups(tree_record) -> Dict:
-    """Get the family_groups dictionary from a tree record."""
     try:
         groups = getattr(tree_record, 'family_groups', None)
         if isinstance(groups, dict):
@@ -56,7 +51,6 @@ def get_tree_family_groups(tree_record) -> Dict:
 
 
 def save_tree_family_groups(tree_record_id: str, groups: Dict) -> bool:
-    """Save the updated family_groups dictionary back to the tree record."""
     try:
         pb.collection('trees').update(tree_record_id, {'family_groups': groups})
         return True
@@ -66,13 +60,11 @@ def save_tree_family_groups(tree_record_id: str, groups: Dict) -> bool:
 
 
 def record_to_person(record) -> Dict[str, Any]:
-    """Convert a PocketBase people record to a person dict."""
     raw_groups = getattr(record, 'family_groups', None) or []
     if isinstance(raw_groups, list):
         family_groups = [g for g in raw_groups if isinstance(g, str)]
     else:
         family_groups = []
-
     return {
         'first_name':     record.first_name,
         'last_name':      record.last_name,
@@ -91,28 +83,24 @@ def record_to_person(record) -> Dict[str, Any]:
 
 
 def build_graph(people_records: list) -> nx.DiGraph:
-    """Build a NetworkX graph from a list of PocketBase people records."""
     graph = nx.DiGraph()
-
     for record in people_records:
         graph.add_node(record.person_uuid, **record_to_person(record))
-
     for record in people_records:
         if record.father_id and graph.has_node(record.father_id):
             graph.add_edge(record.father_id, record.person_uuid, relation='father')
         if record.mother_id and graph.has_node(record.mother_id):
             graph.add_edge(record.mother_id, record.person_uuid, relation='mother')
-
     return graph
 
 
 def get_pb_record_by_person_uuid(person_uuid: str, tree_uuid: str):
-    """Fetch a single PocketBase people record by person_uuid and tree_uuid."""
     try:
-        return pb.collection('people').get_first_list_item(
-            f'person_uuid="{person_uuid}" && tree_id="{tree_uuid}"'
-        )
-    except Exception:
+        filter_str = f'person_uuid="{person_uuid}" && tree_id="{tree_uuid}"'
+        print(f"[DEBUG] get_pb_record filter: {filter_str}")
+        return pb.collection('people').get_first_list_item(filter_str)
+    except Exception as e:
+        print(f"[DEBUG] get_pb_record exception: {e}")
         return None
 
 
@@ -121,18 +109,15 @@ def get_pb_record_by_person_uuid(person_uuid: str, tree_uuid: str):
 # ─────────────────────────────────────────────
 
 def require_tree(f):
-    """Decorator that validates X-Access-Code and injects tree_uuid into kwargs."""
     @wraps(f)
     def decorated(*args, **kwargs):
         access_code = request.headers.get('X-Access-Code')
         print(f"[DEBUG] require_tree: access_code={access_code}")
         if not access_code:
             return jsonify({'success': False, 'error': 'Missing X-Access-Code header'}), 401
-
         tree = get_tree_by_access_code(access_code)
         if not tree:
             return jsonify({'success': False, 'error': 'Invalid access code'}), 403
-
         kwargs['tree_uuid'] = tree.tree_uuid
         return f(*args, **kwargs)
     return decorated
@@ -158,17 +143,13 @@ def landing():
 
 @app.route('/api/tree/enter', methods=['POST'])
 def enter_tree():
-    """Validate an access code and return tree metadata."""
     data = request.json
     access_code = data.get('access_code')
-
     if not access_code:
         return jsonify({'success': False, 'error': 'access_code is required'}), 400
-
     tree = get_tree_by_access_code(access_code)
     if not tree:
         return jsonify({'success': False, 'error': 'Invalid access code'}), 403
-
     return jsonify({
         'success': True,
         'tree': {
@@ -187,7 +168,6 @@ def enter_tree():
 @app.route('/api/familygroups', methods=['GET'])
 @require_tree
 def get_family_groups(tree_uuid=None):
-    """Get all named family groups for this tree."""
     access_code = request.headers.get('X-Access-Code')
     tree = get_tree_by_access_code(access_code)
     groups = get_tree_family_groups(tree)
@@ -197,47 +177,32 @@ def get_family_groups(tree_uuid=None):
 @app.route('/api/familygroup', methods=['POST'])
 @require_tree
 def create_family_group(tree_uuid=None):
-    """Create a new named family group."""
     print(f"[DEBUG] create_family_group called, tree_uuid={tree_uuid}")
     access_code = request.headers.get('X-Access-Code')
     tree = get_tree_by_access_code(access_code)
     data = request.json
-    print(f"[DEBUG] request data: {data}")
-
     if not data or not data.get('name'):
         return jsonify({'success': False, 'error': 'name is required'}), 400
-
     groups = get_tree_family_groups(tree)
     group_uuid = str(uuid.uuid4())
     groups[group_uuid] = data['name']
-
     if save_tree_family_groups(tree.id, groups):
-        return jsonify({
-            'success':       True,
-            'group_uuid':    group_uuid,
-            'name':          data['name'],
-            'family_groups': groups
-        }), 201
+        return jsonify({'success': True, 'group_uuid': group_uuid, 'name': data['name'], 'family_groups': groups}), 201
     return jsonify({'success': False, 'error': 'Failed to save group'}), 500
 
 
 @app.route('/api/familygroup/<path:group_uuid>', methods=['PUT'])
 @require_tree
 def update_family_group(group_uuid, tree_uuid=None):
-    """Rename a family group."""
     access_code = request.headers.get('X-Access-Code')
     tree = get_tree_by_access_code(access_code)
     data = request.json
-
     if not data or not data.get('name'):
         return jsonify({'success': False, 'error': 'name is required'}), 400
-
     groups = get_tree_family_groups(tree)
     if group_uuid not in groups:
         return jsonify({'success': False, 'error': 'Group not found'}), 404
-
     groups[group_uuid] = data['name']
-
     if save_tree_family_groups(tree.id, groups):
         return jsonify({'success': True, 'family_groups': groups}), 200
     return jsonify({'success': False, 'error': 'Failed to save group'}), 500
@@ -246,16 +211,12 @@ def update_family_group(group_uuid, tree_uuid=None):
 @app.route('/api/familygroup/<path:group_uuid>', methods=['DELETE'])
 @require_tree
 def delete_family_group(group_uuid, tree_uuid=None):
-    """Delete a named family group."""
     access_code = request.headers.get('X-Access-Code')
     tree = get_tree_by_access_code(access_code)
-
     groups = get_tree_family_groups(tree)
     if group_uuid not in groups:
         return jsonify({'success': False, 'error': 'Group not found'}), 404
-
     del groups[group_uuid]
-
     if save_tree_family_groups(tree.id, groups):
         return jsonify({'success': True, 'family_groups': groups}), 200
     return jsonify({'success': False, 'error': 'Failed to delete group'}), 500
@@ -268,27 +229,18 @@ def delete_family_group(group_uuid, tree_uuid=None):
 @app.route('/api/person', methods=['POST'])
 @require_tree
 def add_person(tree_uuid=None):
-    """Add a new person to the family tree."""
     data = request.json
-
     try:
         people_records = get_people_for_tree(tree_uuid)
-        graph = build_graph(people_records)
-
+        graph     = build_graph(people_records)
         father_id = data.get('father_id')
         mother_id = data.get('mother_id')
-
         family_groups = data.get('family_groups')
         if not family_groups:
-            all_groups = [
-                g for _, d in graph.nodes(data=True)
-                for g in d.get('family_groups', [])
-            ]
+            all_groups = [g for _, d in graph.nodes(data=True) for g in d.get('family_groups', [])]
             family_groups = [(max(all_groups) + 1) if all_groups else 1]
-
         person_uuid = str(uuid.uuid4())
         sex = data['sex'].lower()
-
         pb.collection('people').create({
             'tree_id':        tree_uuid,
             'person_uuid':    person_uuid,
@@ -304,170 +256,193 @@ def add_person(tree_uuid=None):
             'place_of_birth': data.get('place_of_birth', ''),
             'current_location': data.get('current_location', ''),
         })
-
-        return jsonify({
-            'success':       True,
-            'person_id':     person_uuid,
-            'family_groups': family_groups,
-            'message':       'Person added successfully'
-        }), 201
-
+        return jsonify({'success': True, 'person_id': person_uuid, 'family_groups': family_groups, 'message': 'Person added successfully'}), 201
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<path:person_uuid>', methods=['GET'])
+@app.route('/api/person/<string:person_uuid>', methods=['GET'])
 @require_tree
 def get_person(person_uuid, tree_uuid=None):
-    """Get information about a specific person."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
-
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
-
-    return jsonify({
-        'success': True,
-        'id':      person_uuid,
-        'person':  record_to_person(record)
-    }), 200
+    return jsonify({'success': True, 'id': person_uuid, 'person': record_to_person(record)}), 200
 
 
-@app.route('/api/person/<path:person_uuid>', methods=['PUT'])
+@app.route('/api/person/<string:person_uuid>', methods=['PUT'])
 @require_tree
 def update_person(person_uuid, tree_uuid=None):
-    """Update a person's details."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
-
     data = request.json
-
     try:
         update_data = {}
-
-        if 'first_name' in data:
-            update_data['first_name'] = data['first_name']
-        if 'last_name' in data:
-            update_data['last_name'] = data['last_name']
-        if 'middle_name' in data:
-            update_data['middle_name'] = data['middle_name']
-        if 'nick_name' in data:
-            update_data['nick_name'] = data['nick_name']
-        if 'sex' in data:
-            update_data['sex'] = data['sex'].upper()[0]
-        if 'family_groups' in data:
-            update_data['family_groups'] = data['family_groups']
-        if 'birthday' in data:
-            update_data['birthday'] = data['birthday']
-        if 'place_of_birth' in data:
-            update_data['place_of_birth'] = data['place_of_birth']
-        if 'current_location' in data:
-            update_data['current_location'] = data['current_location']
-        if 'father_id' in data:
-            update_data['father_id'] = data['father_id'] or ''
-        if 'mother_id' in data:
-            update_data['mother_id'] = data['mother_id'] or ''
-
+        if 'first_name' in data:    update_data['first_name']    = data['first_name']
+        if 'last_name' in data:     update_data['last_name']     = data['last_name']
+        if 'middle_name' in data:   update_data['middle_name']   = data['middle_name']
+        if 'nick_name' in data:     update_data['nick_name']     = data['nick_name']
+        if 'sex' in data:           update_data['sex']           = data['sex'].upper()[0]
+        if 'family_groups' in data: update_data['family_groups'] = data['family_groups']
+        if 'birthday' in data:      update_data['birthday']      = data['birthday']
+        if 'place_of_birth' in data:   update_data['place_of_birth']   = data['place_of_birth']
+        if 'current_location' in data: update_data['current_location'] = data['current_location']
+        if 'father_id' in data:     update_data['father_id']     = data['father_id'] or ''
+        if 'mother_id' in data:     update_data['mother_id']     = data['mother_id'] or ''
         pb.collection('people').update(record.id, update_data)
         updated = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
-
-        return jsonify({
-            'success': True,
-            'message': 'Person updated successfully',
-            'person':  record_to_person(updated)
-        }), 200
-
+        return jsonify({'success': True, 'message': 'Person updated successfully', 'person': record_to_person(updated)}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<path:person_uuid>/position', methods=['PUT'])
+@app.route('/api/person/<string:person_uuid>/position', methods=['PUT'])
 @require_tree
 def update_position(person_uuid, tree_uuid=None):
-    """Update a person's canvas position."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
-
     data = request.json
-
     try:
-        pb.collection('people').update(record.id, {
-            'pos_x': data.get('pos_x'),
-            'pos_y': data.get('pos_y'),
-        })
+        pb.collection('people').update(record.id, {'pos_x': data.get('pos_x'), 'pos_y': data.get('pos_y')})
         return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<path:person_uuid>/parents', methods=['GET'])
+@app.route('/api/person/<string:person_uuid>/parents', methods=['GET'])
 @require_tree
 def get_parents(person_uuid, tree_uuid=None):
-    """Get the parents of a person."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
-
     parents = {'father': None, 'mother': None}
-
     if record.father_id:
         father = get_pb_record_by_person_uuid(record.father_id, tree_uuid)
         if father:
             parents['father'] = {'id': father.person_uuid, **record_to_person(father)}
-
     if record.mother_id:
         mother = get_pb_record_by_person_uuid(record.mother_id, tree_uuid)
         if mother:
             parents['mother'] = {'id': mother.person_uuid, **record_to_person(mother)}
-
     return jsonify({'success': True, 'parents': parents}), 200
 
 
-@app.route('/api/person/<path:person_uuid>/children', methods=['GET'])
+@app.route('/api/person/<string:person_uuid>/children', methods=['GET'])
 @require_tree
 def get_children(person_uuid, tree_uuid=None):
-    """Get all children of a person."""
     try:
         records = pb.collection('people').get_full_list(
-            query_params={
-                'filter': f'tree_id="{tree_uuid}" && (father_id="{person_uuid}" || mother_id="{person_uuid}")'
-            }
+            query_params={'filter': f'tree_id="{tree_uuid}" && (father_id="{person_uuid}" || mother_id="{person_uuid}")'}
         )
         children = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
         return jsonify({'success': True, 'children': children, 'count': len(children)}), 200
-
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
-@app.route('/api/person/<path:person_uuid>/siblings', methods=['GET'])
+@app.route('/api/person/<string:person_uuid>/siblings', methods=['GET'])
 @require_tree
 def get_siblings(person_uuid, tree_uuid=None):
-    """Get all siblings of a person."""
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
         return jsonify({'success': False, 'error': 'Person not found'}), 404
-
     try:
         people_records = get_people_for_tree(tree_uuid)
         graph = build_graph(people_records)
-
         siblings = set()
         for parent_id in [record.father_id, record.mother_id]:
             if parent_id and graph.has_node(parent_id):
                 for child_id in graph.successors(parent_id):
                     if child_id != person_uuid:
                         siblings.add(child_id)
-
         sibling_list = []
         for sibling_uuid in siblings:
             sibling_record = get_pb_record_by_person_uuid(sibling_uuid, tree_uuid)
             if sibling_record:
                 sibling_list.append({'id': sibling_uuid, **record_to_person(sibling_record)})
-
         return jsonify({'success': True, 'siblings': sibling_list, 'count': len(sibling_list)}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
 
+
+@app.route('/api/person/<string:person_uuid>/auntsuncles', methods=['GET'])
+@require_tree
+def get_aunts_uncles(person_uuid, tree_uuid=None):
+    record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
+    if not record:
+        return jsonify({'success': False, 'error': 'Person not found'}), 404
+    try:
+        people_records = get_people_for_tree(tree_uuid)
+        graph = build_graph(people_records)
+
+        # Find blood aunts/uncles — parents' siblings
+        aunts_uncles = set()
+        for parent_id in [record.father_id, record.mother_id]:
+            if parent_id and graph.has_node(parent_id):
+                for grandparent_id in graph.predecessors(parent_id):
+                    for aunt_uncle_id in graph.successors(grandparent_id):
+                        if aunt_uncle_id != parent_id:
+                            aunts_uncles.add(aunt_uncle_id)
+
+        # Find spouses of blood aunts/uncles
+        # A spouse is someone who shares a child with the aunt/uncle
+        # but is not themselves an aunt/uncle by blood
+        spouses = set()
+        for au_id in aunts_uncles:
+            for child_id in graph.successors(au_id):
+                for co_parent_id in graph.predecessors(child_id):
+                    if co_parent_id != au_id and co_parent_id not in aunts_uncles:
+                        spouses.add(co_parent_id)
+
+        all_aunts_uncles = aunts_uncles | spouses
+
+        result = []
+        for au_uuid in all_aunts_uncles:
+            au_record = get_pb_record_by_person_uuid(au_uuid, tree_uuid)
+            if au_record:
+                result.append({'id': au_uuid, **record_to_person(au_record)})
+
+        return jsonify({'success': True, 'aunts_uncles': result, 'count': len(result)}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/api/person/<string:person_uuid>/cousins', methods=['GET'])
+@require_tree
+def get_cousins(person_uuid, tree_uuid=None):
+    print(f"[DEBUG] get_cousins called: person_uuid={person_uuid}, tree_uuid={tree_uuid}")
+    record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
+    if not record:
+        return jsonify({'success': False, 'error': 'Person not found'}), 404
+    try:
+        people_records = get_people_for_tree(tree_uuid)
+        graph = build_graph(people_records)
+        siblings = set()
+        for parent_id in [record.father_id, record.mother_id]:
+            if parent_id and graph.has_node(parent_id):
+                for child_id in graph.successors(parent_id):
+                    if child_id != person_uuid:
+                        siblings.add(child_id)
+        aunts_uncles = set()
+        for parent_id in [record.father_id, record.mother_id]:
+            if parent_id and graph.has_node(parent_id):
+                for grandparent_id in graph.predecessors(parent_id):
+                    for aunt_uncle_id in graph.successors(grandparent_id):
+                        if aunt_uncle_id != parent_id:
+                            aunts_uncles.add(aunt_uncle_id)
+        cousins = set()
+        for aunt_uncle_id in aunts_uncles:
+            for cousin_id in graph.successors(aunt_uncle_id):
+                if cousin_id != person_uuid and cousin_id not in siblings:
+                    cousins.add(cousin_id)
+        cousin_list = []
+        for cousin_uuid in cousins:
+            cousin_record = get_pb_record_by_person_uuid(cousin_uuid, tree_uuid)
+            if cousin_record:
+                cousin_list.append({'id': cousin_uuid, **record_to_person(cousin_record)})
+        return jsonify({'success': True, 'cousins': cousin_list, 'count': len(cousin_list)}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -479,7 +454,6 @@ def get_siblings(person_uuid, tree_uuid=None):
 @app.route('/api/people', methods=['GET'])
 @require_tree
 def get_all_people(tree_uuid=None):
-    """Get all people in the family tree."""
     records = get_people_for_tree(tree_uuid)
     people  = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
     return jsonify({'success': True, 'people': people, 'count': len(people)}), 200
@@ -492,46 +466,24 @@ def get_all_people(tree_uuid=None):
 @app.route('/api/people/generations', methods=['GET'])
 @require_tree
 def get_generations(tree_uuid=None):
-    """Calculate and return the generation depth for each person."""
-    records = get_people_for_tree(tree_uuid)
-    graph   = build_graph(records)
-
+    records    = get_people_for_tree(tree_uuid)
+    graph      = build_graph(records)
     generation = {}
-    roots = [n for n in graph.nodes if graph.in_degree(n) == 0]
-    queue = list(roots)
+    roots      = [n for n in graph.nodes if graph.in_degree(n) == 0]
+    queue      = list(roots)
     for r in roots:
         generation[r] = 0
-
     while queue:
         current = queue.pop(0)
         for child in graph.successors(current):
-            parent_gen = max(
-                generation[p]
-                for p in graph.predecessors(child)
-                if p in generation
-            )
-            new_gen = parent_gen + 1
+            parent_gen = max(generation[p] for p in graph.predecessors(child) if p in generation)
+            new_gen    = parent_gen + 1
             if child not in generation or generation[child] < new_gen:
                 generation[child] = new_gen
                 queue.append(child)
-
-    result  = []
-    for record in records:
-        u = record.person_uuid
-        result.append({
-            'id':         u,
-            'first_name': record.first_name,
-            'last_name':  record.last_name,
-            'generation': generation.get(u, 0)
-        })
-
+    result  = [{'id': r.person_uuid, 'first_name': r.first_name, 'last_name': r.last_name, 'generation': generation.get(r.person_uuid, 0)} for r in records]
     max_gen = max((r['generation'] for r in result), default=0)
-
-    return jsonify({
-        'success':        True,
-        'people':         result,
-        'max_generation': max_gen
-    }), 200
+    return jsonify({'success': True, 'people': result, 'max_generation': max_gen}), 200
 
 
 # ─────────────────────────────────────────────
@@ -541,79 +493,55 @@ def get_generations(tree_uuid=None):
 @app.route('/api/groups', methods=['GET'])
 @require_tree
 def get_all_groups(tree_uuid=None):
-    """Get all family groups."""
     records = get_people_for_tree(tree_uuid)
-
-    groups = {}
+    groups  = {}
     for record in records:
         for group_id in (record.family_groups or []):
             if group_id not in groups:
                 groups[group_id] = []
             groups[group_id].append({'id': record.person_uuid, **record_to_person(record)})
-
     return jsonify({'success': True, 'groups': groups, 'count': len(groups)}), 200
 
 
 @app.route('/api/group/<int:group_id>', methods=['GET'])
 @require_tree
 def get_group(group_id, tree_uuid=None):
-    """Get all people in a specific family group."""
     records = get_people_for_tree(tree_uuid)
-
-    members = [
-        {'id': r.person_uuid, **record_to_person(r)}
-        for r in records
-        if group_id in (r.family_groups or [])
-    ]
-
+    members = [{'id': r.person_uuid, **record_to_person(r)} for r in records if group_id in (r.family_groups or [])]
     if not members:
         return jsonify({'success': False, 'error': 'Group not found'}), 404
-
     return jsonify({'success': True, 'group_id': group_id, 'members': members, 'count': len(members)}), 200
 
 
 # ─────────────────────────────────────────────
-# Export and stats endpoints
+# Export and stats
 # ─────────────────────────────────────────────
 
 @app.route('/api/export', methods=['GET'])
 @require_tree
 def export_tree(tree_uuid=None):
-    """Export the entire family tree as JSON."""
     records = get_people_for_tree(tree_uuid)
-
-    nodes = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
-
-    edges = []
+    nodes   = [{'id': r.person_uuid, **record_to_person(r)} for r in records]
+    edges   = []
     for r in records:
         if r.father_id:
             edges.append({'source': r.father_id, 'target': r.person_uuid, 'relation': 'father'})
         if r.mother_id:
             edges.append({'source': r.mother_id, 'target': r.person_uuid, 'relation': 'mother'})
-
     return jsonify({'success': True, 'tree': {'nodes': nodes, 'edges': edges}}), 200
 
 
 @app.route('/api/stats', methods=['GET'])
 @require_tree
 def get_stats(tree_uuid=None):
-    """Get statistics about the family tree."""
-    records = get_people_for_tree(tree_uuid)
-    graph   = build_graph(records)
-
-    all_groups = {
-        g for _, d in graph.nodes(data=True)
-        for g in d.get('family_groups', [])
-    }
-
-    return jsonify({
-        'success': True,
-        'stats': {
-            'total_people':        graph.number_of_nodes(),
-            'total_relationships': graph.number_of_edges(),
-            'total_groups':        len(all_groups)
-        }
-    }), 200
+    records    = get_people_for_tree(tree_uuid)
+    graph      = build_graph(records)
+    all_groups = {g for _, d in graph.nodes(data=True) for g in d.get('family_groups', [])}
+    return jsonify({'success': True, 'stats': {
+        'total_people':        graph.number_of_nodes(),
+        'total_relationships': graph.number_of_edges(),
+        'total_groups':        len(all_groups)
+    }}), 200
 
 
 # ─────────────────────────────────────────────
@@ -622,7 +550,6 @@ def get_stats(tree_uuid=None):
 
 @app.route('/api', methods=['GET'])
 def api_index():
-    """API documentation."""
     return jsonify({
         'name':    'Family Tree REST API',
         'version': '2.0',
@@ -639,6 +566,8 @@ def api_index():
             'GET /api/person/<id>/parents':      'Get parents of a person',
             'GET /api/person/<id>/children':     'Get children of a person',
             'GET /api/person/<id>/siblings':     'Get siblings of a person',
+            'GET /api/person/<id>/auntsuncles':  'Get aunts and uncles of a person',
+            'GET /api/person/<id>/cousins':      'Get first cousins of a person',
             'GET /api/people':                   'Get all people',
             'GET /api/people/generations':       'Get generation depth for each person',
             'GET /api/groups':                   'Get all family groups',

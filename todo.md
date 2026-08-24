@@ -1,5 +1,6 @@
 ## Next
-
+- Uncles not showing me. 
+- Split up HTML/JS/CSS
 
 ## UI Improvements
 - Snapping to some kind of grid
@@ -36,6 +37,7 @@ Statistics: show number of kids, grandparents
 ## Admin Tasks
 - Split off JS/CSS
 - Map how this app works
+
 
 ### Reference
 - Color platte: https://gka.github.io/palettes/#/33|d|00429d,96ffea,ffffe0|ffffe0,ff005e,93003a|1|1
