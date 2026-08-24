@@ -383,14 +383,19 @@ function setTreeMeta(tree) {
 }
 
 async function shareAccessCode() {
+    const treeName  = document.getElementById('bar-tree-name').textContent;
+    const shareUrl  = 'https://family-tree.tail32217.ts.net/';
+    const shareText = 'Join my family tree! Access code: ' + window.accessCode;
     try {
         if (navigator.share) {
-            await navigator.share({ title: document.getElementById('bar-tree-name').textContent, text: 'Join my family tree! Access code: ' + window.accessCode, url: window.location.href });
+            await navigator.share({ title: treeName, text: shareText, url: shareUrl });
         } else {
-            await navigator.clipboard.writeText(window.accessCode);
-            alert('Access code copied to clipboard:\n\n' + window.accessCode);
+            await navigator.clipboard.writeText(shareText + '\n' + shareUrl);
+            alert('Copied to clipboard:\n\n' + shareText + '\n' + shareUrl);
         }
-    } catch (e) { alert('Share this access code:\n\n' + window.accessCode); }
+    } catch (e) {
+        alert(shareText + '\n' + shareUrl);
+    }
 }
 
 async function loadTree() {
