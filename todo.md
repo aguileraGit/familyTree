@@ -1,6 +1,4 @@
 ## Next
-- Add badges in Person Details for Brothers, Sisters, Cousins, Aunts/Uncles still wasn't added
-- Split up HTML/JS/CSS
 
 ## UI Improvements
 - Snapping to some kind of grid

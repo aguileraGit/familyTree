@@ -232,6 +232,8 @@ window.newFamilyModal    = null;
 window.familyGroups      = {};
 
 const STORAGE_KEY = 'family_tree_access_code';
+const GRID_SIZE    = 25;
+const snapToGrid   = v => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
 const GROUP_COLORS = (() => {
     const colors = [
@@ -440,10 +442,26 @@ function renderTree() {
     });
 
     const svgSel = d3.select('#tree-svg');
+    const defs   = svgSel.append('defs');
+    defs.append('pattern')
+        .attr('id', 'grid-dots')
+        .attr('width', GRID_SIZE)
+        .attr('height', GRID_SIZE)
+        .attr('patternUnits', 'userSpaceOnUse')
+        .append('circle')
+        .attr('cx', 1).attr('cy', 1).attr('r', 1.2)
+        .attr('fill', '#ccc').attr('fill-opacity', 0.6);
     const gSel   = svgSel.append('g').attr('id', 'tree-g');
-    const edgeG  = gSel.append('g').attr('id', 'edges');
-    const nodeG  = gSel.append('g').attr('id', 'nodes');
-    const textG  = gSel.append('g').attr('id', 'labels');
+    gSel.append('rect')
+        .attr('id', 'grid-background')
+        .attr('x', -5000).attr('y', -5000)
+        .attr('width', 10000).attr('height', 10000)
+        .attr('fill', 'url(#grid-dots)')
+        .attr('pointer-events', 'none');
+    const contentG = gSel.append('g').attr('id', 'tree-content');
+    const edgeG  = contentG.append('g').attr('id', 'edges');
+    const nodeG  = contentG.append('g').attr('id', 'nodes');
+    const textG  = contentG.append('g').attr('id', 'labels');
     const nodeElMap = {};
 
     const zoomBehavior = d3.zoom().scaleExtent([0.1, 3]).on('zoom', e => gSel.attr('transform', e.transform));
@@ -520,6 +538,14 @@ function renderTree() {
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
                 if (moved) {
+                    window.positions[person.id].x = snapToGrid(window.positions[person.id].x);
+                    window.positions[person.id].y = snapToGrid(window.positions[person.id].y);
+                    grp.setAttribute('transform', 'translate(' + window.positions[person.id].x + ',' + window.positions[person.id].y + ')');
+                    const lbl = textG.node().querySelector('[data-label-id="' + person.id + '"]');
+                    if (lbl) { lbl.setAttribute('x', window.positions[person.id].x); lbl.setAttribute('y', window.positions[person.id].y + 35); }
+                    const yr = textG.node().querySelector('[data-year-id="' + person.id + '"]');
+                    if (yr) { yr.setAttribute('x', window.positions[person.id].x); yr.setAttribute('y', window.positions[person.id].y + 48); }
+                    drawEdges();
                     const fp = { x: window.positions[person.id].x, y: window.positions[person.id].y };
                     clearTimeout(window.positionSaveTimer);
                     window.positionSaveTimer = setTimeout(() => savePositionToDB(person.id, fp), 300);
@@ -535,14 +561,14 @@ function renderTree() {
     });
 
     requestAnimationFrame(() => {
-        fitToView(svgSel, gSel, zoomBehavior);
+        fitToView(svgSel, contentG, zoomBehavior);
         drawGroupOutlines();
         applyConnectionVisibility();
     });
 }
 
-function fitToView(svgSel, gSel, zoomBehavior) {
-    const svgEl = svgSel.node(), gEl = gSel.node();
+function fitToView(svgSel, contentSel, zoomBehavior) {
+    const svgEl = svgSel.node(), gEl = contentSel.node();
     const svgW = svgEl.clientWidth || 900, svgH = svgEl.clientHeight || 600;
     const bbox = gEl.getBBox();
     if (!bbox || bbox.width === 0 || bbox.height === 0) return;
@@ -559,7 +585,7 @@ function drawGroupOutlines() {
     const existing = document.getElementById('group-outlines');
     if (existing) existing.remove();
     if (!window.showOutlines || !window.treeData) return;
-    const gEl = document.getElementById('tree-g'), edgesEl = document.getElementById('edges');
+    const gEl = document.getElementById('tree-content'), edgesEl = document.getElementById('edges');
     if (!gEl || !edgesEl) return;
     const outlinesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     outlinesG.setAttribute('id', 'group-outlines');
@@ -602,6 +628,39 @@ function drawGroupOutlines() {
 
         let dragStartX, dragStartY, moved = false;
         const memberOrigPositions = {};
+
+        function syncGroupVisuals() {
+            members.forEach(m => {
+                if (!window.positions[m.id]) return;
+                const nodeEl = document.querySelector('g[data-id="' + m.id + '"]');
+                if (nodeEl) nodeEl.setAttribute('transform', 'translate(' + window.positions[m.id].x + ',' + window.positions[m.id].y + ')');
+                const tG = document.getElementById('labels');
+                if (tG) {
+                    const l = tG.querySelector('[data-label-id="' + m.id + '"]');
+                    if (l) { l.setAttribute('x', window.positions[m.id].x); l.setAttribute('y', window.positions[m.id].y + 35); }
+                    const y = tG.querySelector('[data-year-id="' + m.id + '"]');
+                    if (y) { y.setAttribute('x', window.positions[m.id].x); y.setAttribute('y', window.positions[m.id].y + 48); }
+                }
+            });
+            const newMinX = Math.min.apply(null, members.map(m => window.positions[m.id].x)) - RADIUS - PAD;
+            const newMinY = Math.min.apply(null, members.map(m => window.positions[m.id].y)) - RADIUS - PAD;
+            const newMaxX = Math.max.apply(null, members.map(m => window.positions[m.id].x)) + RADIUS + PAD;
+            const newMaxY = Math.max.apply(null, members.map(m => window.positions[m.id].y)) + RADIUS + PAD;
+            rect.setAttribute('x', newMinX); rect.setAttribute('y', newMinY);
+            rect.setAttribute('width', newMaxX - newMinX); rect.setAttribute('height', newMaxY - newMinY);
+            lbl.setAttribute('x', newMinX + 10); lbl.setAttribute('y', newMinY + 16);
+            const edgeG2 = document.getElementById('edges');
+            if (edgeG2) {
+                edgeG2.querySelectorAll('line').forEach((line, i) => {
+                    const edge = window.treeData.edges[i];
+                    if (!edge) return;
+                    const s = window.positions[edge.source], t = window.positions[edge.target];
+                    if (s) { line.setAttribute('x1', s.x); line.setAttribute('y1', s.y); }
+                    if (t) { line.setAttribute('x2', t.x); line.setAttribute('y2', t.y); }
+                });
+            }
+        }
+
         rect.addEventListener('mousedown', function(e) {
             e.preventDefault(); e.stopPropagation();
             moved = false;
@@ -621,39 +680,21 @@ function drawGroupOutlines() {
                     if (!memberOrigPositions[m.id]) return;
                     window.positions[m.id].x = memberOrigPositions[m.id].x + dx;
                     window.positions[m.id].y = memberOrigPositions[m.id].y + dy;
-                    const nodeEl = document.querySelector('g[data-id="' + m.id + '"]');
-                    if (nodeEl) nodeEl.setAttribute('transform', 'translate(' + window.positions[m.id].x + ',' + window.positions[m.id].y + ')');
-                    const tG = document.getElementById('labels');
-                    if (tG) {
-                        const l = tG.querySelector('[data-label-id="' + m.id + '"]');
-                        if (l) { l.setAttribute('x', window.positions[m.id].x); l.setAttribute('y', window.positions[m.id].y + 35); }
-                        const y = tG.querySelector('[data-year-id="' + m.id + '"]');
-                        if (y) { y.setAttribute('x', window.positions[m.id].x); y.setAttribute('y', window.positions[m.id].y + 48); }
-                    }
                 });
-                const newMinX = Math.min.apply(null, members.map(m => window.positions[m.id].x)) - RADIUS - PAD;
-                const newMinY = Math.min.apply(null, members.map(m => window.positions[m.id].y)) - RADIUS - PAD;
-                const newMaxX = Math.max.apply(null, members.map(m => window.positions[m.id].x)) + RADIUS + PAD;
-                const newMaxY = Math.max.apply(null, members.map(m => window.positions[m.id].y)) + RADIUS + PAD;
-                rect.setAttribute('x', newMinX); rect.setAttribute('y', newMinY);
-                rect.setAttribute('width', newMaxX - newMinX); rect.setAttribute('height', newMaxY - newMinY);
-                lbl.setAttribute('x', newMinX + 10); lbl.setAttribute('y', newMinY + 16);
-                const edgeG2 = document.getElementById('edges');
-                if (edgeG2) {
-                    edgeG2.querySelectorAll('line').forEach((line, i) => {
-                        const edge = window.treeData.edges[i];
-                        if (!edge) return;
-                        const s = window.positions[edge.source], t = window.positions[edge.target];
-                        if (s) { line.setAttribute('x1', s.x); line.setAttribute('y1', s.y); }
-                        if (t) { line.setAttribute('x2', t.x); line.setAttribute('y2', t.y); }
-                    });
-                }
+                syncGroupVisuals();
             }
             function onMouseUp() {
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
                 rect.style.cursor = 'grab';
                 if (moved) {
+                    members.forEach(m => {
+                        if (window.positions[m.id]) {
+                            window.positions[m.id].x = snapToGrid(window.positions[m.id].x);
+                            window.positions[m.id].y = snapToGrid(window.positions[m.id].y);
+                        }
+                    });
+                    syncGroupVisuals();
                     clearTimeout(window.positionSaveTimer);
                     window.positionSaveTimer = setTimeout(() => {
                         members.forEach(m => {
