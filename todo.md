@@ -2,7 +2,7 @@
 
 ## UI Improvements
 - Stop with the random colors
-- Fix color palette
+- Think about the last names in the card titles and NAV. Automatically add last names?
 
 
 ## Improving Family Groups - Inheritance
