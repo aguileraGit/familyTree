@@ -34,4 +34,4 @@ Statistics: show number of kids, grandparents
 
 
 ### Reference
-- Color platte: https://gka.github.io/palettes/#/33|d|00429d,96ffea,ffffe0|ffffe0,ff005e,93003a|1|1
+- Color platte: https://gka.github.io/palettes/#/33|d|00429d,76dfca|fff3ef,ff005e,93003a|0|1

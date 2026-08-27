@@ -128,8 +128,8 @@
                             <label>Sex *</label>
                             <select class="form-select form-select-sm" id="sex" required>
                                 <option value="">Choose...</option>
-                                <option value="male">Male</option>
                                 <option value="female">Female</option>
+                                <option value="male">Male</option>
                             </select>
                         </div>
                         <div class="ff"><label>Father</label><select class="form-select form-select-sm" id="father_id"><option value="">None</option></select></div>
@@ -807,7 +807,10 @@ function populateParentDropdowns() {
     fSel.innerHTML = ''; mSel.innerHTML = '';
     const nF = document.createElement('option'); nF.value = ''; nF.textContent = 'None'; fSel.appendChild(nF);
     const nM = document.createElement('option'); nM.value = ''; nM.textContent = 'None'; mSel.appendChild(nM);
-    window.treeData.nodes.forEach(p => {
+    const sortedNodes = [...window.treeData.nodes].sort((a, b) =>
+        a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)
+    );
+    sortedNodes.forEach(p => {
         const opt = document.createElement('option'); opt.value = p.id; opt.textContent = shortName(p);
         if (p.sex === 'M') fSel.appendChild(opt.cloneNode(true));
         if (p.sex === 'F') mSel.appendChild(opt.cloneNode(true));
@@ -869,7 +872,8 @@ function populateFamilyGroupDropdown() {
     const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = 'None'; primary.appendChild(noneOpt);
     const newOpt  = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ Add New Family Group'; primary.appendChild(newOpt);
     secondary.innerHTML = '';
-    Object.entries(window.familyGroups).forEach(([uuid, name]) => {
+    const sortedGroups = Object.entries(window.familyGroups).sort((a, b) => a[1].localeCompare(b[1]));
+    sortedGroups.forEach(([uuid, name]) => {
         const o1 = document.createElement('option'); o1.value = uuid; o1.textContent = name; o1.selected = uuid === prevPrimary; primary.appendChild(o1);
         const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
     });
