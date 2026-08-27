@@ -1,10 +1,8 @@
 ## Next
 
 ## UI Improvements
-- Snapping to some kind of grid
 - Stop with the random colors
 - Fix color palette
-- Should manage button be there or in View Options?
 
 
 ## Improving Family Groups - Inheritance

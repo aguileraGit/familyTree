@@ -237,12 +237,12 @@ const snapToGrid   = v => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
 const GROUP_COLORS = (() => {
     const colors = [
-        '#00429d','#0a4fa2','#145ca8','#1f68ad','#2975b2','#3282b7',
-        '#3d8ebc','#479bc1','#51a8c6','#5bb5cc','#65c2d1','#70cfd6',
-        '#7adcdc','#85e9e1','#8ff6e6','#b9ffe7','#ffffe0','#ffeed8',
-        '#ffdecf','#ffcdc6','#ffbbbd','#ffa9b4','#ff96aa','#ff82a0',
-        '#ff6b95','#ff5187','#ff2c74','#f5005b','#e10054','#cd004d',
-        '#b90047','#a60040','#93003a'
+        '#00429d','#184ba0','#2654a3','#305da6','#3867a9','#4070ac',
+        '#467aaf','#4c83b2','#528db5','#5797b8','#5da1ba','#61abbd',
+        '#66b5c0','#6ac0c2','#6ecac5','#72d4c7','#76dfca','#ffdedc',
+        '#ffcaca','#ffb6b9','#ffa3a9','#fe919b','#f97f8d','#f26f81',
+        '#ea5f76','#e14f6b','#d84162','#ce3359','#c32551','#b8194a',
+        '#ac0c44','#a0033f','#93003a'
     ];
     for (let i = colors.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -272,7 +272,7 @@ function drawGroupCircle(parent, r, familyGroups) {
     if (groups.length === 1) {
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('r', r);
-        circle.setAttribute('fill', groups[0] === 0 ? '#ccc' : groupColor(groups[0]));
+        circle.setAttribute('fill', groups[0] === 0 ? '#2b2b2b' : groupColor(groups[0]));
         circle.setAttribute('class', 'node-circle');
         parent.appendChild(circle);
         return;
@@ -287,7 +287,7 @@ function drawGroupCircle(parent, r, familyGroups) {
         const largeArc = angleStep > Math.PI ? 1 : 0;
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', 'M 0 0 L ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 + ' Z');
-        path.setAttribute('fill', gid === 0 ? '#ccc' : groupColor(gid));
+        path.setAttribute('fill', gid === 0 ? '#2b2b2b' : groupColor(gid));
         path.setAttribute('class', 'node-circle');
         parent.appendChild(path);
     });
@@ -621,7 +621,7 @@ function drawGroupOutlines() {
         const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         lbl.setAttribute('x', minX + 10); lbl.setAttribute('y', minY + 16);
         lbl.setAttribute('font-size', '11'); lbl.setAttribute('font-weight', '600');
-        lbl.setAttribute('fill', color); lbl.setAttribute('fill-opacity', '0.9');
+        lbl.setAttribute('fill', '#333'); lbl.setAttribute('fill-opacity', '0.9');
         lbl.setAttribute('pointer-events', 'none');
         lbl.textContent = name;
         outlinesG.appendChild(lbl);
