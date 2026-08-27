@@ -96,6 +96,29 @@
     </div>
 </div>
 
+<!-- Share Modal -->
+<div class="modal fade" id="share-modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title">Invite Family to <span id="share-modal-tree-name"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Send this link and access code to someone so they can view and add to the tree.</p>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold mb-1">Tree Link</label>
+                    <div><a id="share-modal-link" href="#" target="_blank" rel="noopener"></a></div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label small fw-semibold mb-1">Access Code</label>
+                    <div class="font-monospace" id="share-modal-code"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Navbar -->
 <nav class="navbar navbar-dark bg-secondary">
     <div class="container-fluid">
@@ -201,7 +224,7 @@
             <div class="d-flex justify-content-between align-items-center bg-secondary text-white py-1 px-3" style="border-radius:8px 8px 0 0;">
                 <div class="fw-semibold small" id="bar-tree-name">Family Tree</div>
                 <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-light btn-sm py-0 px-2 fw-bold" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Share</button>
+                    <button class="btn btn-light btn-sm py-0 px-2 fw-bold" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Invite Family</button>
                     <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
                 </div>
             </div>
@@ -229,6 +252,7 @@ window.positionSaveTimer = null;
 window.accessModal       = null;
 window.groupsModal       = null;
 window.newFamilyModal    = null;
+window.shareModal        = null;
 window.familyGroups      = {};
 
 const STORAGE_KEY = 'family_tree_access_code';
@@ -387,17 +411,22 @@ function setTreeMeta(tree) {
 async function shareAccessCode() {
     const treeName  = document.getElementById('bar-tree-name').textContent;
     const shareUrl  = 'https://family-tree.tail32217.ts.net/';
-    const shareText = 'Join my family tree! Access code: ' + window.accessCode;
-    try {
-        if (navigator.share) {
+    const shareText = 'Join ' + treeName + ' on Family Tree! Use access code ' + window.accessCode + ' to view and add family members.';
+    if (navigator.share) {
+        try {
             await navigator.share({ title: treeName, text: shareText, url: shareUrl });
-        } else {
-            await navigator.clipboard.writeText(shareText + '\n' + shareUrl);
-            alert('Copied to clipboard:\n\n' + shareText + '\n' + shareUrl);
+            return;
+        } catch (e) {
+            // User cancelled the native share sheet, or it failed — fall back to the modal below.
         }
-    } catch (e) {
-        alert(shareText + '\n' + shareUrl);
     }
+    document.getElementById('share-modal-tree-name').textContent = treeName;
+    const linkEl = document.getElementById('share-modal-link');
+    linkEl.href = shareUrl;
+    linkEl.textContent = shareUrl;
+    document.getElementById('share-modal-code').textContent = window.accessCode;
+    if (!window.shareModal) window.shareModal = new bootstrap.Modal(document.getElementById('share-modal'));
+    window.shareModal.show();
 }
 
 async function loadTree() {
