@@ -409,7 +409,66 @@ def get_aunts_uncles(person_uuid, tree_uuid=None):
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
+@app.route('/api/person/<string:person_uuid>/grandparents', methods=['GET'])
+@require_tree
+def get_grandparents(person_uuid, tree_uuid=None):
+    record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
+    if not record:
+        return jsonify({'success': False, 'error': 'Person not found'}), 404
+    try:
+        people_records = get_people_for_tree(tree_uuid)
+        graph = build_graph(people_records)
+        grandparents = set()
+        for parent_id in [record.father_id, record.mother_id]:
+            if parent_id and graph.has_node(parent_id):
+                for grandparent_id in graph.predecessors(parent_id):
+                    grandparents.add(grandparent_id)
+        result = []
+        for gp_uuid in grandparents:
+            gp_record = get_pb_record_by_person_uuid(gp_uuid, tree_uuid)
+            if gp_record:
+                result.append({'id': gp_uuid, **record_to_person(gp_record)})
+        return jsonify({'success': True, 'grandparents': result, 'count': len(result)}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
 @app.route('/api/person/<string:person_uuid>/cousins', methods=['GET'])
+@require_tree
+def get_cousins(person_uuid, tree_uuid=None):
+    print(f"[DEBUG] get_cousins called: person_uuid={person_uuid}")
+    record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
+    if not record:
+        return jsonify({'success': False, 'error': 'Person not found'}), 404
+    try:
+        people_records = get_people_for_tree(tree_uuid)
+        graph = build_graph(people_records)
+        siblings = set()
+        for parent_id in [record.father_id, record.mother_id]:
+            if parent_id and graph.has_node(parent_id):
+                for child_id in graph.successors(parent_id):
+                    if child_id != person_uuid:
+                        siblings.add(child_id)
+        aunts_uncles = set()
+        for parent_id in [record.father_id, record.mother_id]:
+            if parent_id and graph.has_node(parent_id):
+                for grandparent_id in graph.predecessors(parent_id):
+                    for aunt_uncle_id in graph.successors(grandparent_id):
+                        if aunt_uncle_id != parent_id:
+                            aunts_uncles.add(aunt_uncle_id)
+        cousins = set()
+        for aunt_uncle_id in aunts_uncles:
+            for cousin_id in graph.successors(aunt_uncle_id):
+                if cousin_id != person_uuid and cousin_id not in siblings:
+                    cousins.add(cousin_id)
+        cousin_list = []
+        for cousin_uuid in cousins:
+            cousin_record = get_pb_record_by_person_uuid(cousin_uuid, tree_uuid)
+            if cousin_record:
+                cousin_list.append({'id': cousin_uuid, **record_to_person(cousin_record)})
+        return jsonify({'success': True, 'cousins': cousin_list, 'count': len(cousin_list)}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
 @require_tree
 def get_cousins(person_uuid, tree_uuid=None):
     print(f"[DEBUG] get_cousins called: person_uuid={person_uuid}, tree_uuid={tree_uuid}")
@@ -564,6 +623,7 @@ def api_index():
             'PUT /api/person/<id>':              'Update person details',
             'PUT /api/person/<id>/position':     'Update person canvas position',
             'GET /api/person/<id>/parents':      'Get parents of a person',
+            'GET /api/person/<id>/grandparents': 'Get grandparents of a person',
             'GET /api/person/<id>/children':     'Get children of a person',
             'GET /api/person/<id>/siblings':     'Get siblings of a person',
             'GET /api/person/<id>/auntsuncles':  'Get aunts and uncles of a person',

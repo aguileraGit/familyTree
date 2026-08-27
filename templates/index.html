@@ -16,8 +16,8 @@
         .node-circle:active { cursor: grabbing; }
         .node-label { font-size: 11px; font-weight: 500; pointer-events: none; text-anchor: middle; dominant-baseline: auto; }
         .node-year { font-size: 9px; fill: #666; pointer-events: none; text-anchor: middle; }
-        .edge-father { stroke: #a8c8f0; stroke-width: 1.5; fill: none; opacity: 0.6; }
-        .edge-mother { stroke: #f5b8d4; stroke-width: 1.5; fill: none; opacity: 0.6; }
+        .edge-father { stroke: #aaa; stroke-width: 1.5; fill: none; opacity: 0.6; }
+        .edge-mother { stroke: #aaa; stroke-width: 1.5; fill: none; opacity: 0.6; }
         .badge-male { background-color: #4a90e2; }
         .badge-female { background-color: #e94b8f; }
         .badge-group { background-color: #6c757d; margin-right: 2px; }
@@ -206,7 +206,7 @@
                 </div>
             </div>
             <div id="tree-container"><svg id="tree-svg"></svg></div>
-            <div class="card mt-3" id="person-details">
+            <div class="card mt-3 mb-4" id="person-details">
                 <div class="card-header bg-secondary text-white py-1 px-2" style="font-size:0.82rem;font-weight:600;">Person Details</div>
                 <div class="card-body p-2" id="person-details-content"></div>
             </div>
@@ -868,19 +868,34 @@ async function showPersonDetails(personId) {
     document.getElementById('person-details-content').innerHTML = '';
     document.getElementById('person-details').classList.add('show');
     try {
-        const [pRes, parRes, sibRes, auRes, cousRes] = await Promise.all([
+        const [pRes, parRes, sibRes, auRes, cousRes, gpRes] = await Promise.all([
             fetch('/api/person/' + personId, { headers: apiHeaders() }),
             fetch('/api/person/' + personId + '/parents', { headers: apiHeaders() }),
             fetch('/api/person/' + personId + '/siblings', { headers: apiHeaders() }),
             fetch('/api/person/' + personId + '/auntsuncles', { headers: apiHeaders() }),
-            fetch('/api/person/' + personId + '/cousins', { headers: apiHeaders() })
+            fetch('/api/person/' + personId + '/cousins', { headers: apiHeaders() }),
+            fetch('/api/person/' + personId + '/grandparents', { headers: apiHeaders() })
         ]);
+
+        const safeJson = async (res) => {
+            try { return await res.json(); }
+            catch (e) { console.warn('[DEBUG] Failed to parse response from', res.url, res.status); return { success: false }; }
+        };
+
+        const pData    = await safeJson(pRes);
+        const parData  = await safeJson(parRes);
+        const sibData  = await safeJson(sibRes);
+        const auData   = await safeJson(auRes);
+        const cousData = await safeJson(cousRes);
+        const gpData   = await safeJson(gpRes);
+
+        console.log('[DEBUG] sibData:', JSON.stringify(sibData));
+        console.log('[DEBUG] auData:', JSON.stringify(auData));
+        console.log('[DEBUG] cousData:', JSON.stringify(cousData));
+        console.log('[DEBUG] gpData:', JSON.stringify(gpData));
+
         console.log('[DEBUG] cousins status:', cousRes.status);
-        const pData    = await pRes.json();
-        const parData  = await parRes.json();
-        const sibData  = await sibRes.json();
-        const auData   = await auRes.json();
-        const cousData = await cousRes.json();
+        console.log('[DEBUG] grandparents status:', gpRes.status);
         if (!pData.success) return;
         const p = pData.person;
         const sexBadge = p.sex === 'M' ? 'badge-male' : 'badge-female';
@@ -888,7 +903,11 @@ async function showPersonDetails(personId) {
         const content  = document.getElementById('person-details-content');
         const row = document.createElement('div'); row.className = 'row';
         const col = document.createElement('div'); col.className = 'col';
-        const h6  = document.createElement('h6'); h6.className = 'mb-1'; h6.textContent = displayName(p); col.appendChild(h6);
+
+        const nameRow = document.createElement('div'); nameRow.className = 'd-flex align-items-center flex-wrap gap-2 mb-1';
+        const h6  = document.createElement('h6'); h6.className = 'mb-0'; h6.textContent = displayName(p);
+        nameRow.appendChild(h6);
+        col.appendChild(nameRow);
         const bp  = document.createElement('p'); bp.className = 'mb-1';
         (p.family_groups || []).forEach((uuid, idx) => {
             const sp = document.createElement('span'); sp.className = 'badge badge-group ms-1';
@@ -910,26 +929,61 @@ async function showPersonDetails(personId) {
             const v = document.createElement('div'); v.textContent = value;
             d.appendChild(s); d.appendChild(v); dr.appendChild(d);
         };
+
+        const addDWithCount = (label, value, count) => {
+            if (!value) return;
+            const d = document.createElement('div'); d.className = 'col-sm-4';
+            const s = document.createElement('small'); s.className = 'text-muted'; s.textContent = label;
+            if (count) {
+                const pill = document.createElement('span');
+                pill.className = 'badge rounded-pill text-bg-dark ms-1';
+                pill.textContent = count;
+                s.appendChild(pill);
+            }
+            const v = document.createElement('div'); v.textContent = value;
+            d.appendChild(s); d.appendChild(v); dr.appendChild(d);
+        };
+
+        const addBadges = (label, people, color) => {
+            if (!people || people.length === 0) return;
+            const d = document.createElement('div'); d.className = 'col-12 mt-1';
+            const s = document.createElement('small'); s.className = 'text-muted d-block mb-1'; s.textContent = label;
+            const wrap = document.createElement('div'); wrap.className = 'd-flex flex-wrap gap-1';
+            people.forEach(p => {
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.style.backgroundColor = color;
+                badge.textContent = displayName(p);
+                wrap.appendChild(badge);
+            });
+            d.appendChild(s); d.appendChild(wrap); dr.appendChild(d);
+        };
         addD('Nickname', p.nick_name); addD('Birthday', p.birthday);
         addD('Place of Birth', p.place_of_birth); addD('Current Location', p.current_location);
         if (parData.success) {
             if (parData.parents.father) addD('Father', displayName(parData.parents.father));
             if (parData.parents.mother) addD('Mother', displayName(parData.parents.mother));
         }
+        if (gpData.success && gpData.grandparents.length > 0) {
+            const grandfathers = gpData.grandparents.filter(g => g.sex === 'M');
+            const grandmothers = gpData.grandparents.filter(g => g.sex === 'F');
+            if (grandfathers.length > 0) addD('Grandfathers', grandfathers.map(g => displayName(g)).join(', '));
+            if (grandmothers.length > 0) addD('Grandmothers', grandmothers.map(g => displayName(g)).join(', '));
+        }
         if (sibData.success && sibData.siblings.length > 0) {
             const brothers = sibData.siblings.filter(s => s.sex === 'M');
             const sisters  = sibData.siblings.filter(s => s.sex === 'F');
-            if (brothers.length > 0) addD('Brothers', brothers.map(s => displayName(s)).join(', '));
-            if (sisters.length > 0)  addD('Sisters',  sisters.map(s => displayName(s)).join(', '));
+            if (brothers.length > 0) addDWithCount('Brothers', brothers.map(s => displayName(s)).join(', '), brothers.length);
+            if (sisters.length > 0)  addDWithCount('Sisters',  sisters.map(s => displayName(s)).join(', '), sisters.length);
         }
         if (cousData.success && cousData.cousins.length > 0) {
-            addD('Cousins', cousData.cousins.map(c => displayName(c)).join(', '));
+            addDWithCount('Cousins', cousData.cousins.map(c => displayName(c)).join(', '), cousData.cousins.length);
         }
         if (auData.success && auData.aunts_uncles.length > 0) {
             const uncles = auData.aunts_uncles.filter(a => a.sex === 'M');
             const aunts  = auData.aunts_uncles.filter(a => a.sex === 'F');
-            if (uncles.length > 0) addD('Uncles', uncles.map(a => displayName(a)).join(', '));
-            if (aunts.length > 0)  addD('Aunts',  aunts.map(a => displayName(a)).join(', '));
+            if (uncles.length > 0) addDWithCount('Uncles', uncles.map(a => displayName(a)).join(', '), uncles.length);
+            if (aunts.length > 0)  addDWithCount('Aunts',  aunts.map(a => displayName(a)).join(', '), aunts.length);
         }
         content.appendChild(dr);
     } catch (e) { console.error('showPersonDetails error:', e); }

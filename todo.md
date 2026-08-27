@@ -1,5 +1,5 @@
 ## Next
-- Uncles not showing me. 
+- Add badges in Person Details for Brothers, Sisters, Cousins, Aunts/Uncles still wasn't added
 - Split up HTML/JS/CSS
 
 ## UI Improvements
@@ -24,9 +24,7 @@ Added a button to view by generations. It doesn't appear to work
 The ability to click on people and see the relationship between them.
 Statistics: show number of kids, grandparents
 
-
 ## Others
-- Spouse - Should we have a link between spouses?
 - Add Maiden name. When adding a new female, if she has a spouse and a father, set the maiden name to father's name
 
 ## An Admin section
