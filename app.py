@@ -235,10 +235,7 @@ def add_person(tree_uuid=None):
         graph     = build_graph(people_records)
         father_id = data.get('father_id')
         mother_id = data.get('mother_id')
-        family_groups = data.get('family_groups')
-        if not family_groups:
-            all_groups = [g for _, d in graph.nodes(data=True) for g in d.get('family_groups', [])]
-            family_groups = [(max(all_groups) + 1) if all_groups else 1]
+        family_groups = data.get('family_groups') or []
         person_uuid = str(uuid.uuid4())
         sex = data['sex'].lower()
         pb.collection('people').create({
@@ -259,7 +256,6 @@ def add_person(tree_uuid=None):
         return jsonify({'success': True, 'person_id': person_uuid, 'family_groups': family_groups, 'message': 'Person added successfully'}), 201
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
-
 
 @app.route('/api/person/<string:person_uuid>', methods=['GET'])
 @require_tree
