@@ -129,9 +129,8 @@
 <!-- Navbar -->
 <nav class="navbar navbar-dark bg-secondary">
     <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1">Family Tree</span>
+        <span class="navbar-brand mb-0 h1">Our Family Tree</span>
         <div class="d-flex align-items-center gap-2">
-            <span class="text-white-50 small" id="nav-tree-name"></span>
             <button class="btn btn-dark btn-sm" onclick="logout()">Log Out</button>
         </div>
     </div>
@@ -409,10 +408,9 @@ function logout() {
     window.accessCode = null; window.positions = {}; window.treeData = null;
     window.generationMode = false; window.showOutlines = true;
     window.showConnections = true; window.showBetween = true;
-    window.familyGroups = {};
+    window.familyGroups = {}; window.treeName = null;
     localStorage.removeItem(STORAGE_KEY);
     const svg = document.getElementById('tree-svg'); if (svg) svg.innerHTML = '';
-    const navName = document.getElementById('nav-tree-name'); if (navName) navName.textContent = '';
     const barName = document.getElementById('bar-tree-name'); if (barName) barName.textContent = 'Family Tree';
     const stats   = document.getElementById('tree-stats'); if (stats) stats.textContent = '0 people';
     const details = document.getElementById('person-details'); if (details) details.classList.remove('show');
@@ -424,14 +422,14 @@ function logout() {
 }
 
 function setTreeMeta(tree) {
-    document.getElementById('nav-tree-name').textContent = tree.name;
+    window.treeName = tree.name;
     document.getElementById('bar-tree-name').textContent = tree.name;
     window.familyGroups = tree.family_groups || {};
     populateFamilyGroupDropdown();
 }
 
 async function shareAccessCode() {
-    const treeName  = document.getElementById('bar-tree-name').textContent;
+    const treeName  = window.treeName || document.getElementById('bar-tree-name').textContent;
     const shareUrl  = 'https://family-tree.tail32217.ts.net/';
     const shareText = 'Join ' + treeName + ' on Family Tree! Use access code ' + window.accessCode + ' to view and add family members.';
     if (navigator.share) {
@@ -451,6 +449,13 @@ async function shareAccessCode() {
     window.shareModal.show();
 }
 
+function updateTreeHeaderName() {
+    const barName = document.getElementById('bar-tree-name');
+    if (!barName || !window.treeData) return;
+    const lastNames = [...new Set(window.treeData.nodes.map(n => n.last_name).filter(Boolean))].sort();
+    barName.textContent = lastNames.length > 0 ? lastNames.join(' - ') + ' Family Tree' : 'Family Tree';
+}
+
 async function loadTree() {
     try {
         const res  = await fetch('/api/export', { headers: apiHeaders() });
@@ -458,6 +463,7 @@ async function loadTree() {
         if (data.success) {
             window.treeData = data.tree;
             document.getElementById('tree-stats').textContent = window.treeData.nodes.length + ' ' + (window.treeData.nodes.length === 1 ? 'person' : 'people');
+            updateTreeHeaderName();
             populateParentDropdowns();
             renderTree();
         }

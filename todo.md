@@ -1,7 +1,6 @@
 ## Next
 
 ## UI Improvements
-- Stop with the random colors
 - Add help page: Add people, Edit, creating family groups, color meaning
 - Think about the last names in the card titles and NAV. Automatically add last names?
 
