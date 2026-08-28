@@ -29,6 +29,10 @@
         .ff label { display: block; font-size: 0.67rem; color: #999; margin-bottom: 2px; line-height: 1.4; }
         .extra-toggle { font-size: 0.72rem; color: #aaa; cursor: pointer; text-decoration: none; display: block; margin: 6px 0 3px; }
         .extra-toggle:hover { color: #666; }
+        .color-swatch-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+        .color-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; }
+        .color-swatch.selected { border-color: #333; box-shadow: 0 0 0 2px #fff inset; }
+        .color-swatch-current { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); padding: 0; cursor: pointer; flex: none; }
     </style>
 </head>
 <body>
@@ -68,6 +72,8 @@
                 <label class="form-label">Family Group Name</label>
                 <input type="text" class="form-control" id="new-family-name" placeholder="e.g. Smith Household">
                 <div id="new-family-error" class="text-danger small mt-1 d-none"></div>
+                <label class="form-label mt-3">Color</label>
+                <div class="color-swatch-grid" id="new-family-color-swatches"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="onNewFamilyModalCancel()">Cancel</button>
@@ -86,10 +92,11 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="input-group mb-3">
+                <div class="input-group mb-2">
                     <input type="text" class="form-control form-control-sm" id="new-group-name" placeholder="New group name">
                     <button class="btn btn-primary btn-sm" onclick="createFamilyGroup()">Add</button>
                 </div>
+                <div class="color-swatch-grid mb-3" id="new-group-color-swatches"></div>
                 <div id="groups-list"></div>
             </div>
         </div>
@@ -259,21 +266,37 @@ const STORAGE_KEY = 'family_tree_access_code';
 const GRID_SIZE    = 25;
 const snapToGrid   = v => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
-const GROUP_COLORS = (() => {
-    const colors = [
-        '#00429d','#184ba0','#2654a3','#305da6','#3867a9','#4070ac',
-        '#467aaf','#4c83b2','#528db5','#5797b8','#5da1ba','#61abbd',
-        '#66b5c0','#6ac0c2','#6ecac5','#72d4c7','#76dfca','#ffdedc',
-        '#ffcaca','#ffb6b9','#ffa3a9','#fe919b','#f97f8d','#f26f81',
-        '#ea5f76','#e14f6b','#d84162','#ce3359','#c32551','#b8194a',
-        '#ac0c44','#a0033f','#93003a'
-    ];
-    for (let i = colors.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [colors[i], colors[j]] = [colors[j], colors[i]];
-    }
-    return colors;
-})();
+const GROUP_COLOR_PALETTE = [
+    '#00429d','#184ba0','#2654a3','#305da6','#3867a9','#4070ac',
+    '#467aaf','#4c83b2','#528db5','#5797b8','#5da1ba','#61abbd',
+    '#66b5c0','#6ac0c2','#6ecac5','#72d4c7','#76dfca','#ffdedc',
+    '#ffcaca','#ffb6b9','#ffa3a9','#fe919b','#f97f8d','#f26f81',
+    '#ea5f76','#e14f6b','#d84162','#ce3359','#c32551','#b8194a',
+    '#ac0c44','#a0033f','#93003a'
+];
+const DEFAULT_GROUP_COLOR = '#6c757d';
+
+function unusedPaletteColor() {
+    const used = new Set(Object.values(window.familyGroups).map(g => g.color).filter(Boolean));
+    return GROUP_COLOR_PALETTE.find(c => !used.has(c)) || GROUP_COLOR_PALETTE[0];
+}
+
+function renderColorSwatches(container, selectedColor, onSelect) {
+    container.innerHTML = '';
+    GROUP_COLOR_PALETTE.forEach(color => {
+        const sw = document.createElement('button');
+        sw.type = 'button';
+        sw.className = 'color-swatch' + (color === selectedColor ? ' selected' : '');
+        sw.style.backgroundColor = color;
+        sw.title = color;
+        sw.addEventListener('click', () => {
+            container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+            sw.classList.add('selected');
+            onSelect(color);
+        });
+        container.appendChild(sw);
+    });
+}
 
 const displayName = p => {
     let n = p.first_name;
@@ -286,9 +309,8 @@ const shortName  = p => p.first_name + ' ' + p.last_name;
 const apiHeaders = () => ({ 'Content-Type': 'application/json', 'X-Access-Code': window.accessCode });
 
 function groupColor(groupUuid) {
-    const keys = Object.keys(window.familyGroups);
-    const idx  = keys.indexOf(groupUuid);
-    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
+    const g = window.familyGroups[groupUuid];
+    return (g && g.color) || DEFAULT_GROUP_COLOR;
 }
 
 function drawGroupCircle(parent, r, familyGroups) {
@@ -632,7 +654,7 @@ function drawGroupOutlines() {
     Object.entries(groupMembersMap).forEach(([groupUuid, members]) => {
         if (members.length === 0) return;
         const color = groupColor(groupUuid);
-        const name  = window.familyGroups[groupUuid] || groupUuid;
+        const name  = (window.familyGroups[groupUuid] && window.familyGroups[groupUuid].name) || groupUuid;
         const positions = members.map(m => window.positions[m.id]);
         const minX = Math.min.apply(null, positions.map(p => p.x)) - RADIUS - PAD;
         const minY = Math.min.apply(null, positions.map(p => p.y)) - RADIUS - PAD;
@@ -853,6 +875,8 @@ function onPrimaryGroupChange() {
         if (!window.newFamilyModal) window.newFamilyModal = new bootstrap.Modal(document.getElementById('new-family-modal'));
         document.getElementById('new-family-name').value = '';
         document.getElementById('new-family-error').classList.add('d-none');
+        window.selectedNewFamilyColor = unusedPaletteColor();
+        renderColorSwatches(document.getElementById('new-family-color-swatches'), window.selectedNewFamilyColor, c => { window.selectedNewFamilyColor = c; });
         window.newFamilyModal.show();
         return;
     }
@@ -870,10 +894,11 @@ function onNewFamilyModalCancel() {
 
 async function createAndSelectFamilyGroup() {
     const name  = document.getElementById('new-family-name').value.trim();
+    const color = window.selectedNewFamilyColor;
     const errEl = document.getElementById('new-family-error');
     if (!name) { errEl.textContent = 'Please enter a family group name.'; errEl.classList.remove('d-none'); return; }
     try {
-        const res  = await fetch('/api/familygroup', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ name }) });
+        const res  = await fetch('/api/familygroup', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ name, color }) });
         const data = await res.json();
         if (data.success) {
             window.familyGroups = data.family_groups;
@@ -901,10 +926,10 @@ function populateFamilyGroupDropdown() {
     const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = 'None'; primary.appendChild(noneOpt);
     const newOpt  = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ Add New Family Group'; primary.appendChild(newOpt);
     secondary.innerHTML = '';
-    const sortedGroups = Object.entries(window.familyGroups).sort((a, b) => a[1].localeCompare(b[1]));
-    sortedGroups.forEach(([uuid, name]) => {
-        const o1 = document.createElement('option'); o1.value = uuid; o1.textContent = name; o1.selected = uuid === prevPrimary; primary.appendChild(o1);
-        const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
+    const sortedGroups = Object.entries(window.familyGroups).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+    sortedGroups.forEach(([uuid, groupData]) => {
+        const o1 = document.createElement('option'); o1.value = uuid; o1.textContent = groupData.name; o1.selected = uuid === prevPrimary; primary.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = groupData.name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
     });
     onPrimaryGroupChange();
 }
@@ -985,7 +1010,7 @@ async function showPersonDetails(personId) {
         const bp  = document.createElement('p'); bp.className = 'mb-1';
         (p.family_groups || []).forEach((uuid, idx) => {
             const sp = document.createElement('span'); sp.className = 'badge badge-group ms-1';
-            sp.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + (window.familyGroups[uuid] || uuid);
+            sp.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + ((window.familyGroups[uuid] && window.familyGroups[uuid].name) || uuid);
             if (idx === 0) sp.title = 'Immediate Family';
             bp.appendChild(sp);
         });
@@ -1117,18 +1142,48 @@ function renderGroupsList() {
     if (Object.keys(window.familyGroups).length === 0) {
         const p = document.createElement('p'); p.className = 'text-muted small'; p.textContent = 'No groups yet. Add one above.'; container.appendChild(p); return;
     }
-    Object.entries(window.familyGroups).forEach(([uuid, name]) => {
-        const div = document.createElement('div'); div.className = 'd-flex align-items-center gap-2 mb-2';
-        const input = document.createElement('input'); input.type = 'text'; input.className = 'form-control form-control-sm'; input.value = name; input.id = 'group-name-' + uuid;
+    Object.entries(window.familyGroups).forEach(([uuid, groupData]) => {
+        const wrap = document.createElement('div'); wrap.className = 'mb-2';
+        const div = document.createElement('div'); div.className = 'd-flex align-items-center gap-2';
+
+        const colorBtn = document.createElement('button');
+        colorBtn.type = 'button';
+        colorBtn.className = 'color-swatch-current';
+        colorBtn.style.backgroundColor = groupData.color || DEFAULT_GROUP_COLOR;
+        colorBtn.title = 'Change color';
+
+        const input = document.createElement('input'); input.type = 'text'; input.className = 'form-control form-control-sm'; input.value = groupData.name; input.id = 'group-name-' + uuid;
         input.addEventListener('keydown', e => { if (e.key === 'Enter') renameFamilyGroup(uuid); });
         const rb = document.createElement('button'); rb.className = 'btn btn-outline-primary btn-sm'; rb.innerHTML = '<i class="bi bi-check"></i>'; rb.addEventListener('click', () => renameFamilyGroup(uuid));
         const db = document.createElement('button'); db.className = 'btn btn-outline-danger btn-sm'; db.innerHTML = '<i class="bi bi-trash"></i>'; db.addEventListener('click', () => deleteFamilyGroup(uuid));
-        div.appendChild(input); div.appendChild(rb); div.appendChild(db); container.appendChild(div);
+        div.appendChild(colorBtn); div.appendChild(input); div.appendChild(rb); div.appendChild(db);
+        wrap.appendChild(div);
+
+        const swatchesEl = document.createElement('div');
+        swatchesEl.className = 'color-swatch-grid mt-2 d-none';
+        wrap.appendChild(swatchesEl);
+
+        colorBtn.addEventListener('click', () => {
+            const isHidden = swatchesEl.classList.contains('d-none');
+            document.querySelectorAll('#groups-list .color-swatch-grid').forEach(el => el.classList.add('d-none'));
+            if (isHidden) {
+                swatchesEl.classList.remove('d-none');
+                renderColorSwatches(swatchesEl, groupData.color, async color => {
+                    await updateGroupColor(uuid, color);
+                    colorBtn.style.backgroundColor = color;
+                    swatchesEl.classList.add('d-none');
+                });
+            }
+        });
+
+        container.appendChild(wrap);
     });
 }
 
 function showManageGroups() {
     renderGroupsList();
+    window.selectedManageGroupColor = unusedPaletteColor();
+    renderColorSwatches(document.getElementById('new-group-color-swatches'), window.selectedManageGroupColor, c => { window.selectedManageGroupColor = c; });
     if (!window.groupsModal) window.groupsModal = new bootstrap.Modal(document.getElementById('groups-modal'));
     window.groupsModal.show();
 }
@@ -1136,11 +1191,19 @@ function showManageGroups() {
 async function createFamilyGroup() {
     const nameEl = document.getElementById('new-group-name');
     const name   = nameEl.value.trim();
+    const color  = window.selectedManageGroupColor;
     if (!name) { alert('Please enter a group name.'); return; }
     try {
-        const res  = await fetch('/api/familygroup', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ name }) });
+        const res  = await fetch('/api/familygroup', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ name, color }) });
         const data = await res.json();
-        if (data.success) { window.familyGroups = data.family_groups; nameEl.value = ''; populateFamilyGroupDropdown(); renderGroupsList(); }
+        if (data.success) {
+            window.familyGroups = data.family_groups;
+            nameEl.value = '';
+            populateFamilyGroupDropdown();
+            renderGroupsList();
+            window.selectedManageGroupColor = unusedPaletteColor();
+            renderColorSwatches(document.getElementById('new-group-color-swatches'), window.selectedManageGroupColor, c => { window.selectedManageGroupColor = c; });
+        }
         else alert('Error: ' + data.error);
     } catch (e) { alert('Failed to create group: ' + e.message); }
 }
@@ -1156,6 +1219,15 @@ async function renameFamilyGroup(uuid) {
         if (data.success) { window.familyGroups = data.family_groups; populateFamilyGroupDropdown(); renderGroupsList(); }
         else alert('Error: ' + data.error);
     } catch (e) { alert('Failed to rename group: ' + e.message); }
+}
+
+async function updateGroupColor(uuid, color) {
+    try {
+        const res  = await fetch('/api/familygroup/' + uuid, { method: 'PUT', headers: apiHeaders(), body: JSON.stringify({ color }) });
+        const data = await res.json();
+        if (data.success) { window.familyGroups = data.family_groups; populateFamilyGroupDropdown(); }
+        else alert('Error: ' + data.error);
+    } catch (e) { alert('Failed to update color: ' + e.message); }
 }
 
 async function deleteFamilyGroup(uuid) {

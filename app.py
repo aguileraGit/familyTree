@@ -1,3 +1,4 @@
+import re
 import uuid
 from functools import wraps
 from typing import Optional, Dict, Any
@@ -11,6 +12,9 @@ app = Flask(__name__)
 CORS(app)
 
 pb = PocketBase('https://pocketbase.tail32217.ts.net')
+
+HEX_COLOR_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
+DEFAULT_GROUP_COLOR = '#6c757d'
 
 # ─────────────────────────────────────────────
 # PocketBase helpers
@@ -40,12 +44,26 @@ def get_people_for_tree(tree_uuid: str) -> list:
         return []
 
 
-def get_tree_family_groups(tree_record) -> Dict:
+def normalize_group(value) -> Dict[str, Any]:
+    """Return a {'name': ..., 'color': ...} dict for a family_groups entry.
+
+    Handles both the legacy plain-string format ("Hinson Family") and the
+    current {'name': ..., 'color': ...} format, so old trees keep working
+    without a migration step. Old entries are normalized on read; they get
+    rewritten to the new format the next time that group is saved (renamed
+    or recolored).
+    """
+    if isinstance(value, dict):
+        return {'name': value.get('name', ''), 'color': value.get('color')}
+    return {'name': value, 'color': None}
+
+
+def get_tree_family_groups(tree_record) -> Dict[str, Dict[str, Any]]:
     try:
         groups = getattr(tree_record, 'family_groups', None)
-        if isinstance(groups, dict):
-            return groups
-        return {}
+        if not isinstance(groups, dict):
+            return {}
+        return {gid: normalize_group(value) for gid, value in groups.items()}
     except Exception:
         return {}
 
@@ -183,11 +201,20 @@ def create_family_group(tree_uuid=None):
     data = request.json
     if not data or not data.get('name'):
         return jsonify({'success': False, 'error': 'name is required'}), 400
+    color = data.get('color') or DEFAULT_GROUP_COLOR
+    if not HEX_COLOR_RE.match(color):
+        return jsonify({'success': False, 'error': 'color must be a hex value like #00429d'}), 400
     groups = get_tree_family_groups(tree)
     group_uuid = str(uuid.uuid4())
-    groups[group_uuid] = data['name']
+    groups[group_uuid] = {'name': data['name'], 'color': color}
     if save_tree_family_groups(tree.id, groups):
-        return jsonify({'success': True, 'group_uuid': group_uuid, 'name': data['name'], 'family_groups': groups}), 201
+        return jsonify({
+            'success': True,
+            'group_uuid': group_uuid,
+            'name': data['name'],
+            'color': color,
+            'family_groups': groups
+        }), 201
     return jsonify({'success': False, 'error': 'Failed to save group'}), 500
 
 
@@ -196,13 +223,20 @@ def create_family_group(tree_uuid=None):
 def update_family_group(group_uuid, tree_uuid=None):
     access_code = request.headers.get('X-Access-Code')
     tree = get_tree_by_access_code(access_code)
-    data = request.json
-    if not data or not data.get('name'):
-        return jsonify({'success': False, 'error': 'name is required'}), 400
+    data = request.json or {}
     groups = get_tree_family_groups(tree)
     if group_uuid not in groups:
         return jsonify({'success': False, 'error': 'Group not found'}), 404
-    groups[group_uuid] = data['name']
+
+    existing = groups[group_uuid]
+    name  = data.get('name', existing['name'])
+    color = data.get('color', existing['color']) or DEFAULT_GROUP_COLOR
+    if not name:
+        return jsonify({'success': False, 'error': 'name is required'}), 400
+    if not HEX_COLOR_RE.match(color):
+        return jsonify({'success': False, 'error': 'color must be a hex value like #00429d'}), 400
+
+    groups[group_uuid] = {'name': name, 'color': color}
     if save_tree_family_groups(tree.id, groups):
         return jsonify({'success': True, 'family_groups': groups}), 200
     return jsonify({'success': False, 'error': 'Failed to save group'}), 500
@@ -231,8 +265,6 @@ def delete_family_group(group_uuid, tree_uuid=None):
 def add_person(tree_uuid=None):
     data = request.json
     try:
-        people_records = get_people_for_tree(tree_uuid)
-        graph     = build_graph(people_records)
         father_id = data.get('father_id')
         mother_id = data.get('mother_id')
         family_groups = data.get('family_groups') or []
@@ -256,6 +288,7 @@ def add_person(tree_uuid=None):
         return jsonify({'success': True, 'person_id': person_uuid, 'family_groups': family_groups, 'message': 'Person added successfully'}), 201
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
 
 @app.route('/api/person/<string:person_uuid>', methods=['GET'])
 @require_tree
@@ -432,41 +465,6 @@ def get_grandparents(person_uuid, tree_uuid=None):
 @app.route('/api/person/<string:person_uuid>/cousins', methods=['GET'])
 @require_tree
 def get_cousins(person_uuid, tree_uuid=None):
-    print(f"[DEBUG] get_cousins called: person_uuid={person_uuid}")
-    record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
-    if not record:
-        return jsonify({'success': False, 'error': 'Person not found'}), 404
-    try:
-        people_records = get_people_for_tree(tree_uuid)
-        graph = build_graph(people_records)
-        siblings = set()
-        for parent_id in [record.father_id, record.mother_id]:
-            if parent_id and graph.has_node(parent_id):
-                for child_id in graph.successors(parent_id):
-                    if child_id != person_uuid:
-                        siblings.add(child_id)
-        aunts_uncles = set()
-        for parent_id in [record.father_id, record.mother_id]:
-            if parent_id and graph.has_node(parent_id):
-                for grandparent_id in graph.predecessors(parent_id):
-                    for aunt_uncle_id in graph.successors(grandparent_id):
-                        if aunt_uncle_id != parent_id:
-                            aunts_uncles.add(aunt_uncle_id)
-        cousins = set()
-        for aunt_uncle_id in aunts_uncles:
-            for cousin_id in graph.successors(aunt_uncle_id):
-                if cousin_id != person_uuid and cousin_id not in siblings:
-                    cousins.add(cousin_id)
-        cousin_list = []
-        for cousin_uuid in cousins:
-            cousin_record = get_pb_record_by_person_uuid(cousin_uuid, tree_uuid)
-            if cousin_record:
-                cousin_list.append({'id': cousin_uuid, **record_to_person(cousin_record)})
-        return jsonify({'success': True, 'cousins': cousin_list, 'count': len(cousin_list)}), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
-@require_tree
-def get_cousins(person_uuid, tree_uuid=None):
     print(f"[DEBUG] get_cousins called: person_uuid={person_uuid}, tree_uuid={tree_uuid}")
     record = get_pb_record_by_person_uuid(person_uuid, tree_uuid)
     if not record:
@@ -612,7 +610,7 @@ def api_index():
             'POST /api/tree/enter':              'Validate access code and get tree info',
             'GET /api/familygroups':             'Get all named family groups',
             'POST /api/familygroup':             'Create a named family group',
-            'PUT /api/familygroup/<uuid>':       'Rename a family group',
+            'PUT /api/familygroup/<uuid>':       'Rename/recolor a family group',
             'DELETE /api/familygroup/<uuid>':    'Delete a family group',
             'POST /api/person':                  'Add a new person',
             'GET /api/person/<id>':              'Get person details',
