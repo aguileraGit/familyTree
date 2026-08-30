@@ -1,8 +1,8 @@
 ## Next
 
 ## UI Improvements
-- Add help page: Add people, Edit, creating family groups, color meaning
-- Think about the last names in the card titles and NAV. Automatically add last names?
+- Filter by Family_Group and/or Last Name (either start from nothing or filter from all)
+- Select from "layer"
 
 
 ## Improving Family Groups - Inheritance
