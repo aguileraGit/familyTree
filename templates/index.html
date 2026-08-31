@@ -275,8 +275,22 @@ const GROUP_COLOR_PALETTE = [
 ];
 const DEFAULT_GROUP_COLOR = '#6c757d';
 
+// A family group's stored value should be {name, color}, but may still be a
+// plain string (pre-color-feature data), null, or missing entirely. These
+// helpers tolerate all of those shapes so a single malformed/legacy entry
+// can never throw and break the rest of the app.
+function safeGroupName(groupData) {
+    if (groupData && typeof groupData === 'object') return groupData.name || '';
+    if (typeof groupData === 'string') return groupData;
+    return '';
+}
+function safeGroupColor(groupData) {
+    if (groupData && typeof groupData === 'object' && groupData.color) return groupData.color;
+    return DEFAULT_GROUP_COLOR;
+}
+
 function unusedPaletteColor() {
-    const used = new Set(Object.values(window.familyGroups).map(g => g.color).filter(Boolean));
+    const used = new Set(Object.values(window.familyGroups).map(safeGroupColor));
     return GROUP_COLOR_PALETTE.find(c => !used.has(c)) || GROUP_COLOR_PALETTE[0];
 }
 
@@ -308,8 +322,7 @@ const shortName  = p => p.first_name + ' ' + p.last_name;
 const apiHeaders = () => ({ 'Content-Type': 'application/json', 'X-Access-Code': window.accessCode });
 
 function groupColor(groupUuid) {
-    const g = window.familyGroups[groupUuid];
-    return (g && g.color) || DEFAULT_GROUP_COLOR;
+    return safeGroupColor(window.familyGroups[groupUuid]);
 }
 
 function drawGroupCircle(parent, r, familyGroups) {
@@ -345,6 +358,10 @@ function drawGroupCircle(parent, r, familyGroups) {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.accessModal = new bootstrap.Modal(document.getElementById('access-modal'));
+    window.allowAccessModalHide = false;
+    document.getElementById('access-modal').addEventListener('hide.bs.modal', e => {
+        if (!window.allowAccessModalHide) e.preventDefault();
+    });
     document.getElementById('person-form').addEventListener('submit', savePerson);
     document.getElementById('modal-access-code').addEventListener('keydown', e => { if (e.key === 'Enter') enterTree(); });
     document.getElementById('new-family-name').addEventListener('keydown', e => { if (e.key === 'Enter') createAndSelectFamilyGroup(); });
@@ -417,7 +434,9 @@ async function enterTree() {
         if (data.success) {
             window.accessCode = code;
             localStorage.setItem(STORAGE_KEY, code);
+            window.allowAccessModalHide = true;
             window.accessModal.hide();
+            window.allowAccessModalHide = false;
             document.getElementById('main-content').classList.remove('blurred');
             setTreeMeta(data.tree);
             loadTree();
@@ -453,7 +472,14 @@ function setTreeMeta(tree) {
     window.treeName = tree.name;
     document.getElementById('bar-tree-name').textContent = tree.name;
     window.familyGroups = tree.family_groups || {};
-    populateFamilyGroupDropdown();
+    try {
+        populateFamilyGroupDropdown();
+    } catch (e) {
+        // A single malformed family-group entry should never block the rest
+        // of the app (in particular, the loadTree() call right after this)
+        // from running.
+        console.error('populateFamilyGroupDropdown failed:', e);
+    }
 }
 
 async function shareAccessCode() {
@@ -688,7 +714,7 @@ function drawGroupOutlines() {
     Object.entries(groupMembersMap).forEach(([groupUuid, members]) => {
         if (members.length === 0) return;
         const color = groupColor(groupUuid);
-        const name  = (window.familyGroups[groupUuid] && window.familyGroups[groupUuid].name) || groupUuid;
+        const name  = safeGroupName(window.familyGroups[groupUuid]) || groupUuid;
         const positions = members.map(m => window.positions[m.id]);
         const minX = Math.min.apply(null, positions.map(p => p.x)) - RADIUS - PAD;
         const minY = Math.min.apply(null, positions.map(p => p.y)) - RADIUS - PAD;
@@ -960,10 +986,11 @@ function populateFamilyGroupDropdown() {
     const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = 'None'; primary.appendChild(noneOpt);
     const newOpt  = document.createElement('option'); newOpt.value = '__new__'; newOpt.textContent = '+ Add New Family Group'; primary.appendChild(newOpt);
     secondary.innerHTML = '';
-    const sortedGroups = Object.entries(window.familyGroups).sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''));
+    const sortedGroups = Object.entries(window.familyGroups).sort((a, b) => safeGroupName(a[1]).localeCompare(safeGroupName(b[1])));
     sortedGroups.forEach(([uuid, groupData]) => {
-        const o1 = document.createElement('option'); o1.value = uuid; o1.textContent = groupData.name; o1.selected = uuid === prevPrimary; primary.appendChild(o1);
-        const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = groupData.name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
+        const name = safeGroupName(groupData);
+        const o1 = document.createElement('option'); o1.value = uuid; o1.textContent = name; o1.selected = uuid === prevPrimary; primary.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
     });
     onPrimaryGroupChange();
 }
@@ -1044,7 +1071,7 @@ async function showPersonDetails(personId) {
         const bp  = document.createElement('p'); bp.className = 'mb-1';
         (p.family_groups || []).forEach((uuid, idx) => {
             const sp = document.createElement('span'); sp.className = 'badge badge-group ms-1';
-            sp.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + ((window.familyGroups[uuid] && window.familyGroups[uuid].name) || uuid);
+            sp.textContent = (idx === 0 ? '\u{1F3E0} ' : '') + (safeGroupName(window.familyGroups[uuid]) || uuid);
             if (idx === 0) sp.title = 'Immediate Family';
             bp.appendChild(sp);
         });
@@ -1177,16 +1204,18 @@ function renderGroupsList() {
         const p = document.createElement('p'); p.className = 'text-muted small'; p.textContent = 'No groups yet. Add one above.'; container.appendChild(p); return;
     }
     Object.entries(window.familyGroups).forEach(([uuid, groupData]) => {
+        const name  = safeGroupName(groupData);
+        const color = safeGroupColor(groupData);
         const wrap = document.createElement('div'); wrap.className = 'mb-2';
         const div = document.createElement('div'); div.className = 'd-flex align-items-center gap-2';
 
         const colorBtn = document.createElement('button');
         colorBtn.type = 'button';
         colorBtn.className = 'color-swatch-current';
-        colorBtn.style.backgroundColor = groupData.color || DEFAULT_GROUP_COLOR;
+        colorBtn.style.backgroundColor = color;
         colorBtn.title = 'Change color';
 
-        const input = document.createElement('input'); input.type = 'text'; input.className = 'form-control form-control-sm'; input.value = groupData.name; input.id = 'group-name-' + uuid;
+        const input = document.createElement('input'); input.type = 'text'; input.className = 'form-control form-control-sm'; input.value = name; input.id = 'group-name-' + uuid;
         input.addEventListener('keydown', e => { if (e.key === 'Enter') renameFamilyGroup(uuid); });
         const rb = document.createElement('button'); rb.className = 'btn btn-outline-primary btn-sm'; rb.innerHTML = '<i class="bi bi-check"></i>'; rb.addEventListener('click', () => renameFamilyGroup(uuid));
         const db = document.createElement('button'); db.className = 'btn btn-outline-danger btn-sm'; db.innerHTML = '<i class="bi bi-trash"></i>'; db.addEventListener('click', () => deleteFamilyGroup(uuid));
@@ -1202,9 +1231,9 @@ function renderGroupsList() {
             document.querySelectorAll('#groups-list .color-swatch-grid').forEach(el => el.classList.add('d-none'));
             if (isHidden) {
                 swatchesEl.classList.remove('d-none');
-                renderColorSwatches(swatchesEl, groupData.color, async color => {
-                    await updateGroupColor(uuid, color);
-                    colorBtn.style.backgroundColor = color;
+                renderColorSwatches(swatchesEl, color, async newColor => {
+                    await updateGroupColor(uuid, newColor);
+                    colorBtn.style.backgroundColor = newColor;
                     swatchesEl.classList.add('d-none');
                 });
             }
