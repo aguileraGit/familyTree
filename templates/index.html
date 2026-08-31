@@ -357,16 +357,39 @@ document.addEventListener('DOMContentLoaded', () => {
     else showModal();
 });
 
-function showModal() {
+function showModal(errorMessage) {
     document.getElementById('main-content').classList.add('blurred');
-    document.getElementById('modal-error').classList.add('d-none');
+    const errEl = document.getElementById('modal-error');
+    if (errorMessage) {
+        errEl.textContent = errorMessage;
+        errEl.classList.remove('d-none');
+    } else {
+        errEl.classList.add('d-none');
+    }
     document.getElementById('modal-access-code').value = '';
     window.accessModal.show();
 }
 
+function describeFetchError(e) {
+    if (e.name === 'AbortError') {
+        return 'The request timed out. The server may be unreachable from your current network.';
+    }
+    return 'Could not reach the server (' + e.message + '). If you\'re outside the home network, this address may not be reachable from here.';
+}
+
+async function fetchWithTimeout(url, options, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
 async function revalidateAndLoad() {
     try {
-        const res  = await fetch('/api/tree/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_code: window.accessCode }) });
+        const res  = await fetchWithTimeout('/api/tree/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_code: window.accessCode }) });
         const data = await res.json();
         if (data.success) {
             document.getElementById('main-content').classList.remove('blurred');
@@ -377,15 +400,19 @@ async function revalidateAndLoad() {
             window.accessCode = null;
             showModal();
         }
-    } catch (e) { console.error('Revalidation failed:', e); showModal(); }
+    } catch (e) {
+        console.error('Revalidation failed:', e);
+        showModal(describeFetchError(e));
+    }
 }
 
 async function enterTree() {
     const code  = document.getElementById('modal-access-code').value.trim();
     const errEl = document.getElementById('modal-error');
     if (!code) { errEl.textContent = 'Please enter an access code.'; errEl.classList.remove('d-none'); return; }
+    errEl.classList.add('d-none');
     try {
-        const res  = await fetch('/api/tree/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_code: code }) });
+        const res  = await fetchWithTimeout('/api/tree/enter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_code: code }) });
         const data = await res.json();
         if (data.success) {
             window.accessCode = code;
@@ -399,8 +426,9 @@ async function enterTree() {
             errEl.classList.remove('d-none');
         }
     } catch (e) {
-        document.getElementById('modal-error').textContent = 'Could not reach the server.';
-        document.getElementById('modal-error').classList.remove('d-none');
+        console.error('enterTree failed:', e);
+        errEl.textContent = describeFetchError(e);
+        errEl.classList.remove('d-none');
     }
 }
 
