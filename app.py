@@ -21,17 +21,13 @@ DEFAULT_GROUP_COLOR = '#6c757d'
 def _load_git_sha() -> str:
     """Resolve a short git SHA to display for build/deploy verification.
 
-    Checks, in order:
-      1. A GIT_SHA environment variable (set via a Docker build ARG/ENV,
-         a compose 'environment:' entry, or a CI pipeline).
-      2. A GIT_SHA file baked into the image (e.g. written by a
-         `git rev-parse --short HEAD` RUN step in the Dockerfile).
-    Falls back to 'unknown' if neither is present, so a missing wiring
-    step never breaks the app — it just shows nothing useful yet.
+    Reads a GIT_SHA file baked into the image at build time (see the
+    Dockerfile — it curls GitHub's API for the latest commit on the
+    deployed branch, since Portainer's git-stack build does not preserve
+    a .git directory to run `git rev-parse` against). Falls back to
+    'unknown' if the file is missing, so a build-step issue never breaks
+    the app — it just shows nothing useful yet.
     """
-    env_sha = os.environ.get('GIT_SHA')
-    if env_sha:
-        return env_sha
     sha_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'GIT_SHA')
     try:
         with open(sha_file) as f:
