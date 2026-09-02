@@ -4,12 +4,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 
 WORKDIR /app
 
-RUN git rev-parse --short HEAD > GIT_SHA || echo unknown > GIT_SHA
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+RUN git rev-parse --short HEAD > GIT_SHA || echo unknown > GIT_SHA
 
 EXPOSE 5001
 
