@@ -129,7 +129,10 @@
 <!-- Navbar -->
 <nav class="navbar navbar-dark bg-secondary">
     <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1">Our Family Tree</span>
+        <div class="d-flex align-items-center">
+            <span class="navbar-brand mb-0 h1">Our Family Tree</span>
+            <span id="build-sha" class="small ms-2" style="color: rgba(var(--bs-secondary-rgb), 1);">{{ git_sha }}</span>
+        </div>
         <div class="d-flex align-items-center gap-2">
             <button class="btn btn-dark btn-sm" onclick="logout()">Log Out</button>
         </div>

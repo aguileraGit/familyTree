@@ -1,3 +1,4 @@
+import os
 import re
 import uuid
 from functools import wraps
@@ -15,6 +16,31 @@ pb = PocketBase('https://pocketbase.tail32217.ts.net')
 
 HEX_COLOR_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
 DEFAULT_GROUP_COLOR = '#6c757d'
+
+
+def _load_git_sha() -> str:
+    """Resolve a short git SHA to display for build/deploy verification.
+
+    Checks, in order:
+      1. A GIT_SHA environment variable (set via a Docker build ARG/ENV,
+         a compose 'environment:' entry, or a CI pipeline).
+      2. A GIT_SHA file baked into the image (e.g. written by a
+         `git rev-parse --short HEAD` RUN step in the Dockerfile).
+    Falls back to 'unknown' if neither is present, so a missing wiring
+    step never breaks the app — it just shows nothing useful yet.
+    """
+    env_sha = os.environ.get('GIT_SHA')
+    if env_sha:
+        return env_sha
+    sha_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'GIT_SHA')
+    try:
+        with open(sha_file) as f:
+            return f.read().strip() or 'unknown'
+    except Exception:
+        return 'unknown'
+
+
+GIT_SHA = _load_git_sha()
 
 # ─────────────────────────────────────────────
 # PocketBase helpers
@@ -147,7 +173,7 @@ def require_tree(f):
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    return render_template('index.html', git_sha=GIT_SHA)
 
 
 @app.route('/landing', methods=['GET'])

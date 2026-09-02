@@ -4,6 +4,8 @@
 - Filter by Family_Group and/or Last Name (either start from nothing or filter from all)
 - Select from "layer"
 
+- When deleting people and agroup becomes an ophan, it's never deleted
+
 
 ## Improving Family Groups - Inheritance
 The idea was to automatically link a person to a group when they were assigned a mother or father. There is a problem when a mother/father already have more than one group assigned. There is no way to distinuisgh which of those groups is correct.
