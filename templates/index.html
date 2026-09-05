@@ -231,7 +231,15 @@
         <!-- Main Panel -->
         <div class="col-md-10">
             <div class="d-flex justify-content-between align-items-center bg-secondary text-white py-1 px-3" style="border-radius:8px 8px 0 0;">
-                <div class="fw-semibold small" id="bar-tree-name">Family Tree</div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="fw-semibold small" id="bar-tree-name">Our Family Tree</div>
+                    <div class="dropdown">
+                        <button class="btn btn-light btn-sm py-0 px-2" type="button" id="group-filter-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size:0.72rem;line-height:1.4;">
+                            <i class="bi bi-funnel"></i> <span id="group-filter-btn-label">Filter by Group</span>
+                        </button>
+                        <ul class="dropdown-menu p-2" id="group-filter-menu" style="max-height:260px; overflow-y:auto; min-width:220px;"></ul>
+                    </div>
+                </div>
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-light btn-sm py-0 px-2 fw-bold" style="font-size:0.75rem;line-height:1.5;" onclick="shareAccessCode()">Invite Family</button>
                     <span class="badge bg-light text-dark" id="tree-stats">0 people</span>
@@ -263,8 +271,31 @@ window.groupsModal       = null;
 window.newFamilyModal    = null;
 window.shareModal        = null;
 window.familyGroups      = {};
+window.groupFilter       = new Set();
+window.visibleTreeData   = null;
+window.treeUuid          = null;
 
 const STORAGE_KEY = 'family_tree_access_code';
+
+function groupFilterStorageKey() {
+    return 'family_tree_group_filter_' + (window.treeUuid || 'default');
+}
+function loadGroupFilter() {
+    try {
+        const raw = localStorage.getItem(groupFilterStorageKey());
+        const arr = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+        return new Set();
+    }
+}
+function saveGroupFilter() {
+    try {
+        localStorage.setItem(groupFilterStorageKey(), JSON.stringify([...window.groupFilter]));
+    } catch (e) {
+        console.warn('Failed to save group filter:', e);
+    }
+}
 const GRID_SIZE    = 25;
 const snapToGrid   = v => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
@@ -459,9 +490,10 @@ function logout() {
     window.generationMode = false; window.showOutlines = true;
     window.showConnections = true; window.showBetween = true;
     window.familyGroups = {}; window.treeName = null;
+    window.groupFilter = new Set(); window.visibleTreeData = null; window.treeUuid = null;
     localStorage.removeItem(STORAGE_KEY);
     const svg = document.getElementById('tree-svg'); if (svg) svg.innerHTML = '';
-    const barName = document.getElementById('bar-tree-name'); if (barName) barName.textContent = 'Family Tree';
+    const barName = document.getElementById('bar-tree-name'); if (barName) barName.textContent = 'Our Family Tree';
     const stats   = document.getElementById('tree-stats'); if (stats) stats.textContent = '0 people';
     const details = document.getElementById('person-details'); if (details) details.classList.remove('show');
     const genT = document.getElementById('generation-toggle'); if (genT) genT.checked = false;
@@ -473,8 +505,10 @@ function logout() {
 
 function setTreeMeta(tree) {
     window.treeName = tree.name;
-    document.getElementById('bar-tree-name').textContent = tree.name;
+    window.treeUuid = tree.tree_uuid;
+    document.getElementById('bar-tree-name').textContent = 'Our Family Tree';
     window.familyGroups = tree.family_groups || {};
+    window.groupFilter = loadGroupFilter();
     try {
         populateFamilyGroupDropdown();
     } catch (e) {
@@ -506,40 +540,146 @@ async function shareAccessCode() {
     window.shareModal.show();
 }
 
-function updateTreeHeaderName() {
-    const barName = document.getElementById('bar-tree-name');
-    if (!barName || !window.treeData) return;
-    const lastNames = [...new Set(window.treeData.nodes.map(n => n.last_name).filter(Boolean))].sort();
-    barName.textContent = lastNames.length > 0 ? lastNames.join(' - ') + ' Family Tree' : 'Family Tree';
-}
-
 async function loadTree() {
     try {
         const res  = await fetch('/api/export', { headers: apiHeaders() });
         const data = await res.json();
         if (data.success) {
             window.treeData = data.tree;
-            document.getElementById('tree-stats').textContent = window.treeData.nodes.length + ' ' + (window.treeData.nodes.length === 1 ? 'person' : 'people');
-            updateTreeHeaderName();
             populateParentDropdowns();
-            renderTree();
+            applyGroupFilter();
         }
     } catch (e) { console.error('loadTree error:', e); }
+}
+
+function applyGroupFilter() {
+    // Drop any group ids that no longer exist (e.g. the group was deleted
+    // since the filter was saved) so a stale selection can't silently hide
+    // everyone with no visible explanation.
+    [...window.groupFilter].forEach(gid => {
+        if (!window.familyGroups[gid]) window.groupFilter.delete(gid);
+    });
+
+    if (!window.treeData) return;
+
+    if (window.groupFilter.size === 0) {
+        window.visibleTreeData = window.treeData;
+    } else {
+        const visibleNodes = window.treeData.nodes.filter(p => {
+            const primaryGroup = (p.family_groups && p.family_groups.length > 0) ? p.family_groups[0] : null;
+            return primaryGroup && window.groupFilter.has(primaryGroup);
+        });
+        const visibleIds = new Set(visibleNodes.map(p => p.id));
+        const visibleEdges = window.treeData.edges.filter(e => visibleIds.has(e.source) && visibleIds.has(e.target));
+        window.visibleTreeData = { nodes: visibleNodes, edges: visibleEdges };
+    }
+
+    const total = window.treeData.nodes.length;
+    const shown = window.visibleTreeData.nodes.length;
+    const statsEl = document.getElementById('tree-stats');
+    if (statsEl) {
+        statsEl.textContent = window.groupFilter.size > 0
+            ? shown + ' of ' + total + (total === 1 ? ' person' : ' people')
+            : total + (total === 1 ? ' person' : ' people');
+    }
+
+    renderTree();
+}
+
+function renderGroupFilterMenu() {
+    const menu = document.getElementById('group-filter-menu');
+    if (!menu) return;
+    menu.innerHTML = '';
+
+    const clearLi = document.createElement('li');
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'dropdown-item small';
+    clearBtn.textContent = 'Clear filters';
+    clearBtn.disabled = window.groupFilter.size === 0;
+    clearBtn.addEventListener('click', () => {
+        window.groupFilter.clear();
+        saveGroupFilter();
+        renderGroupFilterMenu();
+        applyGroupFilter();
+    });
+    clearLi.appendChild(clearBtn);
+    menu.appendChild(clearLi);
+
+    const sortedGroups = Object.entries(window.familyGroups).sort((a, b) => safeGroupName(a[1]).localeCompare(safeGroupName(b[1])));
+
+    if (sortedGroups.length > 0) {
+        const dividerLi = document.createElement('li');
+        const hr = document.createElement('hr');
+        hr.className = 'dropdown-divider';
+        dividerLi.appendChild(hr);
+        menu.appendChild(dividerLi);
+    }
+
+    if (sortedGroups.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'px-2 py-1 text-muted small';
+        li.textContent = 'No family groups yet.';
+        menu.appendChild(li);
+    }
+    sortedGroups.forEach(([uuid, groupData]) => {
+        const li = document.createElement('li');
+        li.className = 'px-2 py-1';
+        const label = document.createElement('label');
+        label.className = 'd-flex align-items-center gap-2 mb-0';
+        label.style.cursor = 'pointer';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'form-check-input mt-0';
+        checkbox.checked = window.groupFilter.has(uuid);
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) window.groupFilter.add(uuid);
+            else window.groupFilter.delete(uuid);
+            saveGroupFilter();
+            updateGroupFilterButtonLabel();
+            applyGroupFilter();
+        });
+
+        const dot = document.createElement('span');
+        dot.style.cssText = 'display:inline-block;width:12px;height:12px;border-radius:50%;flex:none;';
+        dot.style.backgroundColor = safeGroupColor(groupData);
+
+        const text = document.createElement('span');
+        text.className = 'text-dark small';
+        text.textContent = safeGroupName(groupData);
+
+        label.appendChild(checkbox);
+        label.appendChild(dot);
+        label.appendChild(text);
+        li.appendChild(label);
+        menu.appendChild(li);
+    });
+    updateGroupFilterButtonLabel();
+}
+
+function updateGroupFilterButtonLabel() {
+    const labelEl = document.getElementById('group-filter-btn-label');
+    if (!labelEl) return;
+    const n = window.groupFilter.size;
+    labelEl.textContent = n === 0 ? 'Filter by Group' : (n === 1 ? '1 Group Selected' : n + ' Groups Selected');
 }
 
 function renderTree() {
     const svgEl = document.getElementById('tree-svg');
     svgEl.innerHTML = '';
-    if (!window.treeData || window.treeData.nodes.length === 0) {
+    if (!window.visibleTreeData || window.visibleTreeData.nodes.length === 0) {
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         t.setAttribute('x', '400'); t.setAttribute('y', '200'); t.setAttribute('text-anchor', 'middle');
         t.style.fontSize = '16px'; t.style.fill = '#999';
-        t.textContent = 'No people yet. Add someone to get started!';
+        t.textContent = (window.groupFilter.size > 0)
+            ? 'No people match the selected group filter.'
+            : 'No people yet. Add someone to get started!';
         svgEl.appendChild(t);
         return;
     }
 
-    const hier   = buildHierarchy(window.treeData);
+    const hier   = buildHierarchy(window.visibleTreeData);
     const layout = d3.tree().size([820, 460]).separation((a, b) => a.parent === b.parent ? 1 : 1.5);
     const root   = d3.hierarchy(hier);
     layout(root);
@@ -547,7 +687,7 @@ function renderTree() {
     root.descendants().forEach(d => {
         const id = d.data.id;
         if (id === 'root') return;
-        const dbNode = window.treeData.nodes.find(n => n.id === id);
+        const dbNode = window.visibleTreeData.nodes.find(n => n.id === id);
         if (dbNode && dbNode.pos_x != null && dbNode.pos_y != null) {
             window.positions[id] = { x: dbNode.pos_x, y: dbNode.pos_y };
         } else if (!window.positions[id]) {
@@ -583,7 +723,7 @@ function renderTree() {
 
     function drawEdges() {
         edgeG.selectAll('*').remove();
-        window.treeData.edges.forEach(edge => {
+        window.visibleTreeData.edges.forEach(edge => {
             const s = window.positions[edge.source], t = window.positions[edge.target];
             if (!s || !t) return;
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -595,7 +735,7 @@ function renderTree() {
     }
     drawEdges();
 
-    window.treeData.nodes.forEach(person => {
+    window.visibleTreeData.nodes.forEach(person => {
         const pos = window.positions[person.id];
         if (!pos) return;
         const grp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -698,7 +838,7 @@ function onOutlinesToggle(checked) { window.showOutlines = checked; drawGroupOut
 function drawGroupOutlines() {
     const existing = document.getElementById('group-outlines');
     if (existing) existing.remove();
-    if (!window.showOutlines || !window.treeData) return;
+    if (!window.showOutlines || !window.visibleTreeData) return;
     const gEl = document.getElementById('tree-content'), edgesEl = document.getElementById('edges');
     if (!gEl || !edgesEl) return;
     const outlinesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -706,7 +846,7 @@ function drawGroupOutlines() {
     gEl.insertBefore(outlinesG, edgesEl);
     const PAD = 40, RADIUS = 22;
     const groupMembersMap = {};
-    window.treeData.nodes.forEach(person => {
+    window.visibleTreeData.nodes.forEach(person => {
         const pos = window.positions[person.id];
         const groups = person.family_groups || [];
         if (!pos || groups.length === 0) return;
@@ -766,7 +906,7 @@ function drawGroupOutlines() {
             const edgeG2 = document.getElementById('edges');
             if (edgeG2) {
                 edgeG2.querySelectorAll('line').forEach((line, i) => {
-                    const edge = window.treeData.edges[i];
+                    const edge = window.visibleTreeData.edges[i];
                     if (!edge) return;
                     const s = window.positions[edge.source], t = window.positions[edge.target];
                     if (s) { line.setAttribute('x1', s.x); line.setAttribute('y1', s.y); }
@@ -828,15 +968,15 @@ function onConnectionsToggle(checked) { window.showConnections = checked; applyC
 function onBetweenToggle(checked)     { window.showBetween     = checked; applyConnectionVisibility(); }
 
 function applyConnectionVisibility() {
-    if (!window.treeData) return;
+    if (!window.visibleTreeData) return;
     const primaryGroup = {};
-    window.treeData.nodes.forEach(n => {
+    window.visibleTreeData.nodes.forEach(n => {
         primaryGroup[n.id] = (n.family_groups && n.family_groups.length > 0) ? n.family_groups[0] : null;
     });
     const edgesEl = document.getElementById('edges');
     if (!edgesEl) return;
     Array.from(edgesEl.querySelectorAll('line')).forEach((line, i) => {
-        const edge = window.treeData.edges[i];
+        const edge = window.visibleTreeData.edges[i];
         if (!edge) return;
         const srcGrp = primaryGroup[edge.source], tgtGrp = primaryGroup[edge.target];
         const sameGroup = srcGrp && tgtGrp && srcGrp === tgtGrp;
@@ -996,6 +1136,7 @@ function populateFamilyGroupDropdown() {
         const o2 = document.createElement('option'); o2.value = uuid; o2.textContent = name; o2.selected = prevSecondary.includes(uuid); secondary.appendChild(o2);
     });
     onPrimaryGroupChange();
+    renderGroupFilterMenu();
 }
 
 async function savePerson(e) {
@@ -1301,7 +1442,7 @@ async function deleteFamilyGroup(uuid) {
     try {
         const res  = await fetch('/api/familygroup/' + uuid, { method: 'DELETE', headers: apiHeaders() });
         const data = await res.json();
-        if (data.success) { window.familyGroups = data.family_groups; populateFamilyGroupDropdown(); renderGroupsList(); }
+        if (data.success) { window.familyGroups = data.family_groups; populateFamilyGroupDropdown(); renderGroupsList(); applyGroupFilter(); }
         else alert('Error: ' + data.error);
     } catch (e) { alert('Failed to delete group: ' + e.message); }
 }
